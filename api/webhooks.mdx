@@ -1,0 +1,423 @@
+---
+title: Webhooks
+description: Integrate ArchiveBox with external services using webhooks
+---
+
+## Overview
+
+ArchiveBox supports outbound webhooks via the [django-signal-webhooks](https://github.com/MrThearMan/django-signal-webhooks) library. Webhooks allow you to receive real-time notifications when events occur in ArchiveBox.
+
+<Info>
+Webhooks are configured through the Django admin interface and trigger HTTP POST requests to your specified endpoints when Django signals are emitted.
+</Info>
+
+## Webhook Model
+
+Webhooks are stored in the database and can be managed through the admin interface:
+
+```
+http://127.0.0.1:8000/admin/api/outboundwebhook/
+```
+
+Each webhook contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Unique identifier |
+| `created_by` | User | User who created the webhook |
+| `created_at` | datetime | When the webhook was created |
+| `modified_at` | datetime | Last modification time |
+| `ref` | string | Signal reference (e.g., `post_save`, `pre_delete`) |
+| `endpoint` | URL | Destination URL for webhook POSTs |
+| `enabled` | bool | Whether webhook is active |
+
+## Available Events
+
+ArchiveBox uses Django signals for webhooks. Common events include:
+
+### Model Events
+
+**Snapshot Events:**
+- `post_save` - After a snapshot is created or updated
+- `pre_save` - Before a snapshot is saved
+- `post_delete` - After a snapshot is deleted
+- `pre_delete` - Before a snapshot is deleted
+
+**ArchiveResult Events:**
+- `post_save` - After an archive result is created/updated
+- `pre_save` - Before an archive result is saved
+- `post_delete` - After an archive result is deleted
+
+**Crawl Events:**
+- `post_save` - After a crawl is created or updated
+- `post_delete` - After a crawl is deleted
+
+**Tag Events:**
+- `post_save` - After a tag is created or updated
+- `m2m_changed` - When snapshot-tag relationships change
+
+### Custom Signals
+
+ArchiveBox may emit custom signals for specific events. Check the source code in `archivebox/signals/` for available custom signals.
+
+## Setting Up Webhooks
+
+### Via Admin Interface
+
+1. Log in to the Django admin: `/admin/`
+2. Navigate to **API** → **Outbound Webhooks**
+3. Click **Add Outbound Webhook**
+4. Configure:
+   - **Ref**: Signal name (e.g., `post_save`)
+   - **Endpoint**: Your webhook URL
+   - **Enabled**: Check to activate
+   - **Created by**: Select user
+5. Save
+
+### Via Django Shell
+
+```bash
+archivebox shell
+```
+
+```python
+from archivebox.api.models import OutboundWebhook
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+user = User.objects.first()
+
+# Create a webhook for snapshot creation
+webhook = OutboundWebhook.objects.create(
+    ref='post_save',
+    endpoint='https://your-server.com/webhooks/snapshot-created',
+    created_by=user,
+    enabled=True
+)
+print(f"Created webhook: {webhook.id}")
+```
+
+## Webhook Payload
+
+When an event occurs, ArchiveBox sends an HTTP POST request to your endpoint.
+
+### Request Headers
+
+```http
+Content-Type: application/json
+User-Agent: django-signal-webhooks
+X-Webhook-Signature: <signature>  # If configured
+```
+
+### Payload Structure
+
+The payload structure depends on the signal and model:
+
+**Example: Snapshot Created**
+```json
+{
+  "signal": "post_save",
+  "sender": "core.models.Snapshot",
+  "instance": {
+    "id": "01234567-89ab-cdef-0123-456789abcdef",
+    "url": "https://example.com",
+    "timestamp": "2024-01-15T10:30:00",
+    "status": "queued",
+    "created_at": "2024-01-15T10:30:00Z"
+  },
+  "created": true,
+  "raw": false,
+  "using": "default"
+}
+```
+
+**Example: Archive Result Completed**
+```json
+{
+  "signal": "post_save",
+  "sender": "core.models.ArchiveResult",
+  "instance": {
+    "id": "89abcdef-0123-4567-89ab-cdef01234567",
+    "snapshot_id": "01234567-89ab-cdef-0123-456789abcdef",
+    "plugin": "screenshot",
+    "status": "succeeded",
+    "output_files": {"screenshot.png": "/path/to/screenshot.png"}
+  },
+  "created": false,
+  "raw": false,
+  "using": "default"
+}
+```
+
+## Receiving Webhooks
+
+### Python Flask Example
+
+```python
+from flask import Flask, request, jsonify
+import hmac
+import hashlib
+
+app = Flask(__name__)
+WEBHOOK_SECRET = 'your-secret-key'  # Optional: for signature verification
+
+@app.route('/webhooks/snapshot-created', methods=['POST'])
+def handle_snapshot_created():
+    # Verify signature (if configured)
+    signature = request.headers.get('X-Webhook-Signature')
+    if signature:
+        body = request.get_data()
+        expected_signature = hmac.new(
+            WEBHOOK_SECRET.encode(),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+        if signature != expected_signature:
+            return jsonify({'error': 'Invalid signature'}), 401
+    
+    # Process webhook
+    data = request.json
+    snapshot = data.get('instance', {})
+    
+    print(f"New snapshot: {snapshot.get('url')}")
+    print(f"Status: {snapshot.get('status')}")
+    
+    # Your custom logic here
+    # e.g., send notification, update external database, etc.
+    
+    return jsonify({'success': True}), 200
+
+if __name__ == '__main__':
+    app.run(port=5000)
+```
+
+### Node.js Express Example
+
+```javascript
+const express = require('express');
+const crypto = require('crypto');
+
+const app = express();
+app.use(express.json());
+
+const WEBHOOK_SECRET = 'your-secret-key';
+
+app.post('/webhooks/snapshot-created', (req, res) => {
+  // Verify signature (if configured)
+  const signature = req.headers['x-webhook-signature'];
+  if (signature) {
+    const expectedSignature = crypto
+      .createHmac('sha256', WEBHOOK_SECRET)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+    
+    if (signature !== expectedSignature) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+  }
+  
+  // Process webhook
+  const { instance } = req.body;
+  console.log(`New snapshot: ${instance.url}`);
+  console.log(`Status: ${instance.status}`);
+  
+  // Your custom logic here
+  
+  res.json({ success: true });
+});
+
+app.listen(5000, () => {
+  console.log('Webhook receiver running on port 5000');
+});
+```
+
+## Common Use Cases
+
+### Slack Notifications
+
+Send a Slack message when archiving completes:
+
+```python
+import requests
+from flask import Flask, request
+
+app = Flask(__name__)
+SLACK_WEBHOOK_URL = 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
+
+@app.route('/webhooks/archive-complete', methods=['POST'])
+def archive_complete():
+    data = request.json
+    instance = data.get('instance', {})
+    
+    if instance.get('status') == 'succeeded':
+        requests.post(SLACK_WEBHOOK_URL, json={
+            'text': f"✅ Archived: {instance.get('url')}"
+        })
+    
+    return '', 200
+```
+
+### Discord Integration
+
+```python
+import requests
+from flask import Flask, request
+
+app = Flask(__name__)
+DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/YOUR/WEBHOOK'
+
+@app.route('/webhooks/snapshot-created', methods=['POST'])
+def snapshot_created():
+    data = request.json
+    instance = data.get('instance', {})
+    
+    requests.post(DISCORD_WEBHOOK_URL, json={
+        'embeds': [{
+            'title': 'New Snapshot',
+            'description': instance.get('url'),
+            'color': 0x00ff00,
+            'fields': [
+                {'name': 'Status', 'value': instance.get('status')},
+                {'name': 'Timestamp', 'value': instance.get('timestamp')}
+            ]
+        }]
+    })
+    
+    return '', 200
+```
+
+### External Database Sync
+
+```python
+import psycopg2
+from flask import Flask, request
+
+app = Flask(__name__)
+
+@app.route('/webhooks/snapshot-sync', methods=['POST'])
+def sync_snapshot():
+    data = request.json
+    instance = data.get('instance', {})
+    
+    # Connect to external database
+    conn = psycopg2.connect(
+        host='external-db.example.com',
+        database='analytics',
+        user='user',
+        password='password'
+    )
+    
+    # Insert or update snapshot record
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO snapshots (id, url, status, created_at)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (id) DO UPDATE
+        SET status = EXCLUDED.status
+    """, (
+        instance.get('id'),
+        instance.get('url'),
+        instance.get('status'),
+        instance.get('created_at')
+    ))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+    
+    return '', 200
+```
+
+## Webhook Security
+
+### Signature Verification
+
+If supported by django-signal-webhooks, verify webhook signatures:
+
+```python
+import hmac
+import hashlib
+
+def verify_signature(payload, signature, secret):
+    expected_signature = hmac.new(
+        secret.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected_signature)
+```
+
+### Best Practices
+
+<Warning>
+**Security Recommendations:**
+
+- Use HTTPS endpoints only
+- Implement signature verification
+- Validate payload structure
+- Rate limit webhook handlers
+- Use dedicated webhook secrets
+- Monitor for failed deliveries
+- Log webhook events for debugging
+</Warning>
+
+## Troubleshooting
+
+### Webhook Not Firing
+
+1. Check webhook is enabled in admin
+2. Verify signal name matches Django signals
+3. Check ArchiveBox logs for webhook errors
+4. Test endpoint manually with curl
+
+### Testing Webhooks
+
+Use [webhook.site](https://webhook.site) or [requestbin](https://requestbin.com) for testing:
+
+```python
+webhook = OutboundWebhook.objects.create(
+    ref='post_save',
+    endpoint='https://webhook.site/your-unique-url',
+    created_by=user,
+    enabled=True
+)
+```
+
+Then create a snapshot and check the webhook.site dashboard.
+
+### Debugging Failed Deliveries
+
+Check django-signal-webhooks logs:
+
+```bash
+archivebox logs
+# Look for webhook delivery errors
+```
+
+## Webhook Configuration
+
+Configure django-signal-webhooks in `ArchiveBox.conf` or environment:
+
+```bash
+# Webhook retry configuration (if supported)
+WEBHOOK_MAX_RETRIES=3
+WEBHOOK_RETRY_DELAY=60
+WEBHOOK_TIMEOUT=30
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="django-signal-webhooks Docs" icon="github" href="https://github.com/MrThearMan/django-signal-webhooks">
+    Official library documentation
+  </Card>
+  <Card title="Django Signals" icon="book" href="https://docs.djangoproject.com/en/stable/topics/signals/">
+    Django signals documentation
+  </Card>
+  <Card title="Snapshots API" icon="camera" href="/api/snapshots">
+    Monitor snapshot events
+  </Card>
+  <Card title="Crawls API" icon="spider" href="/api/crawls">
+    Track crawl progress
+  </Card>
+</CardGroup>

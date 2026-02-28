@@ -1,0 +1,370 @@
+---
+title: Personas
+description: Archive logged-in content using browser cookies and sessions
+---
+
+Personas let you archive content that requires authentication by importing browser cookies and sessions. This allows ArchiveBox to archive pages as if you were logged in.
+
+<Warning>
+**Security Note**: Personas store sensitive authentication data (cookies, session tokens). Anyone with access to your ArchiveBox data directory can potentially access your logged-in sessions. Use with caution and never share persona data publicly.
+</Warning>
+
+## What Are Personas?
+
+A **persona** is a saved browser profile that includes:
+
+- **Cookies** - Authentication tokens, session IDs
+- **Browser state** - Login sessions, preferences
+- **Local storage** - Site-specific data
+
+Personas enable archiving:
+- Paywalled content (news sites, Medium, etc.)
+- Social media posts (Twitter, Facebook, Instagram)
+- Private repositories (GitHub private repos)
+- Corporate intranets
+- Any content requiring login
+
+## Creating a Persona
+
+### Quick Start
+
+```bash
+# Create persona from Chrome browser
+archivebox persona create --import=chrome personal
+
+# Supported browsers: chrome, chromium, brave, edge
+```
+
+This command:
+1. Creates a new persona named "personal"
+2. Imports cookies from your Chrome browser
+3. Copies Chrome profile data
+4. Makes it available for archiving
+
+### Supported Browsers
+
+- **Chrome** - `--import=chrome`
+- **Chromium** - `--import=chromium`
+- **Brave** - `--import=brave`
+- **Edge** - `--import=edge`
+
+<Note>
+Only **Chromium-based browsers** are currently supported. Firefox support is planned.
+</Note>
+
+## Using Personas
+
+### With the Web UI
+
+1. Navigate to **Admin** → **Snapshots** → **Add Snapshot**
+2. Enter URL(s) to archive
+3. Select persona from dropdown
+4. Click "Add"
+
+### With the CLI
+
+```bash
+# Archive using specific persona
+archivebox add --persona=personal 'https://twitter.com/private_account'
+
+# Archive multiple URLs
+archivebox add --persona=personal < urls.txt
+```
+
+### With Docker
+
+```bash
+# Create persona in Docker
+docker compose run archivebox persona create --import=chrome personal
+
+# Archive with persona
+docker compose run archivebox add --persona=personal 'https://example.com'
+```
+
+## Managing Personas
+
+### List Personas
+
+```bash
+# View all personas
+archivebox persona list
+```
+
+### Update Persona
+
+Re-import to update cookies after logging in to new sites:
+
+```bash
+# Re-import merges/updates cookies
+archivebox persona create --import=chrome personal
+```
+
+Running import again:
+- **Merges** cookies by domain/path/name (deduplicates)
+- **Replaces** Chrome user data directory
+- **Preserves** existing cookies not in the new import
+
+### Delete Persona
+
+```bash
+archivebox persona delete personal
+```
+
+<Warning>
+Deleting a persona removes all associated cookies and session data. This cannot be undone.
+</Warning>
+
+## Storage Location
+
+Personas are stored in:
+
+```
+data/personas/{persona_name}/
+├── cookies.txt                    # Netscape cookies format
+└── chrome_profile/                # Chrome user data directory
+    └── Default/
+        ├── Cookies
+        ├── Local Storage/
+        └── ...
+```
+
+### Cookies Format
+
+Cookies are stored in Netscape format (`cookies.txt`):
+
+```
+# Netscape HTTP Cookie File
+.example.com    TRUE    /    FALSE    1735689600    session_id    abc123xyz
+.github.com     TRUE    /    FALSE    1735689600    user_session  def456uvw
+```
+
+This format is compatible with:
+- `wget --load-cookies`
+- `curl --cookie`
+- Browser cookie extensions
+
+## Archiving with Personas
+
+### How It Works
+
+1. ArchiveBox launches Chrome with the persona's profile
+2. Cookies and session data are loaded
+3. Page is accessed as if you were logged in
+4. Content is archived normally
+
+### What Gets Archived
+
+Same as regular archiving:
+- HTML, PDF, screenshot
+- SingleFile snapshot
+- Media files
+- All configured extractors
+
+**PLUS** content that requires authentication:
+- Private posts
+- Paywalled articles
+- User-specific data
+- Personalized content
+
+## Use Cases
+
+### News Sites & Paywalls
+
+```bash
+# Create persona with your news subscriptions
+archivebox persona create --import=chrome news_subscriptions
+
+# Archive paywalled articles
+archivebox add --persona=news_subscriptions 'https://nytimes.com/article'
+```
+
+### Social Media
+
+```bash
+# Import browser with logged-in social media accounts
+archivebox persona create --import=chrome social
+
+# Archive private Twitter/X posts
+archivebox add --persona=social 'https://twitter.com/friend/status/123'
+
+# Archive private Instagram posts
+archivebox add --persona=social 'https://instagram.com/p/xyz'
+```
+
+### GitHub Private Repositories
+
+```bash
+# Create persona with GitHub login
+archivebox persona create --import=chrome github
+
+# Archive private repo
+archivebox add --persona=github 'https://github.com/myorg/private-repo'
+```
+
+### Corporate Intranets
+
+```bash
+# Create work persona
+archivebox persona create --import=chrome work
+
+# Archive internal documentation
+archivebox add --persona=work --depth=1 'https://intranet.company.com'
+```
+
+## Security Considerations
+
+<Warning>
+**CRITICAL**: Personas contain sensitive authentication data. Follow these security practices:
+</Warning>
+
+### What Personas Store
+
+- **Session tokens** - Can be used to impersonate you
+- **Authentication cookies** - Access to logged-in accounts
+- **OAuth tokens** - Access to connected services
+- **API keys** - If stored in cookies
+
+### Security Best Practices
+
+1. **Restrict access** to your ArchiveBox data directory:
+   ```bash
+   chmod 700 ~/archivebox/data/personas
+   ```
+
+2. **Don't share archives** that used personas publicly
+
+3. **Rotate credentials** after using personas:
+   - Change passwords periodically
+   - Revoke old sessions
+
+4. **Use separate personas** for different security levels:
+   ```bash
+   archivebox persona create --import=chrome personal
+   archivebox persona create --import=chrome work
+   archivebox persona create --import=chrome sensitive
+   ```
+
+5. **Monitor session activity** on your accounts
+
+6. **Delete old personas** when no longer needed:
+   ```bash
+   archivebox persona delete old_persona
+   ```
+
+### What Viewers Can See
+
+<Warning>
+**ASSUME**: Anyone viewing your archives can potentially see:
+- Private content you archived
+- URLs you visited
+- Session tokens in archived network logs (if enabled)
+- Cookies stored in persona data
+</Warning>
+
+See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview) for more details.
+
+## Troubleshooting
+
+### Persona Import Fails
+
+```bash
+# Check Chrome is closed before importing
+# Chrome locks the profile while running
+pkill chrome
+
+# Then retry
+archivebox persona create --import=chrome personal
+```
+
+### Session Expires During Archiving
+
+Cookies may expire. Re-import to refresh:
+
+```bash
+# Log in to sites again in Chrome
+# Then re-import
+archivebox persona create --import=chrome personal
+```
+
+### Archived Page Shows Login Screen
+
+Possible causes:
+
+1. **Session expired** - Re-import cookies
+2. **Wrong persona** - Verify persona has correct cookies
+3. **Site blocking** - Some sites detect automated browsers
+4. **2FA required** - Manual login may be needed
+
+### Chrome Profile Not Found
+
+```bash
+# Specify custom profile location
+archivebox persona create \
+  --import=chrome \
+  --chrome-profile="$HOME/Library/Application Support/Google/Chrome" \
+  personal
+```
+
+### Too Many Cookies
+
+If you have thousands of cookies, import may be slow:
+
+```bash
+# Clean up old cookies in Chrome first
+# Chrome Settings → Privacy → Cookies → See all site data
+
+# Then import
+archivebox persona create --import=chrome personal
+```
+
+## Advanced Usage
+
+### Manual Cookie Import
+
+Export cookies manually and import:
+
+1. **Export cookies** using browser extension:
+   - [Get cookies.txt](https://chrome.google.com/webstore/detail/get-cookiestxt/bgaddhkoddajcdgocldbbfleckgcbcid) (Chrome)
+   - [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/) (Firefox)
+
+2. **Copy to persona directory**:
+   ```bash
+   mkdir -p ~/archivebox/data/personas/manual
+   cp ~/Downloads/cookies.txt ~/archivebox/data/personas/manual/
+   ```
+
+3. **Use persona**:
+   ```bash
+   archivebox add --persona=manual 'https://example.com'
+   ```
+
+### Custom Chrome Profile
+
+Use a specific Chrome profile:
+
+```bash
+# Create dedicated Chrome profile for archiving
+# Chrome → People → Add person → "ArchiveBox"
+
+# Import that profile
+archivebox persona create --import=chrome --profile-name="ArchiveBox" archiving
+```
+
+### Viewing Persona Data
+
+```bash
+# View cookies
+cat ~/archivebox/data/personas/personal/cookies.txt
+
+# View Chrome profile
+ls ~/archivebox/data/personas/personal/chrome_profile/Default/
+
+# Count cookies
+grep -c "^[^#]" ~/archivebox/data/personas/personal/cookies.txt
+```
+
+## See Also
+
+- [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) - `CHROME_USER_DATA_DIR`, `COOKIES_FILE` settings
+- [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview) - Security considerations
+- [Chromium Setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile) - Detailed Chrome profile setup

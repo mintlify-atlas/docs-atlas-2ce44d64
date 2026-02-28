@@ -1,0 +1,313 @@
+---
+title: Search
+description: Full-text search functionality in ArchiveBox
+---
+
+ArchiveBox provides powerful full-text search capabilities to help you find content in your archived pages. Search works across URLs, titles, tags, and page content.
+
+## Search Backends
+
+ArchiveBox supports two search backends:
+
+### Ripgrep (Default)
+
+- **Fast**: Searches across all archived content
+- **No setup**: Works out of the box
+- **Good for**: Small to medium collections (< 10,000 snapshots)
+- **Searches**:
+  - Page URLs
+  - Page titles
+  - Archive file contents (HTML, text)
+  - Tags
+
+### Sonic (Recommended for Large Collections)
+
+- **Very fast**: Optimized full-text search engine
+- **Scalable**: Handles millions of snapshots efficiently
+- **Requires**: Separate Sonic service
+- **Good for**: Large collections (> 10,000 snapshots)
+- **Searches**:
+  - Page URLs
+  - Page titles
+  - Extracted text content
+  - Tags
+  - Metadata
+
+## Setting Up Sonic Search
+
+### With Docker Compose
+
+The `docker-compose.yml` includes Sonic by default:
+
+```yaml
+services:
+    archivebox:
+        environment:
+            - SEARCH_BACKEND_ENGINE=sonic
+            - SEARCH_BACKEND_HOST_NAME=sonic
+            - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+
+    sonic:
+        image: archivebox/sonic:latest
+        expose:
+            - 1491
+        environment:
+            - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+        volumes:
+            - ./data/sonic:/var/lib/sonic/store
+```
+
+1. **Change the password** in `docker-compose.yml`:
+   ```yaml
+   SEARCH_BACKEND_PASSWORD=YourSecurePassword
+   ```
+
+2. **Start the services**:
+   ```bash
+   docker compose up -d
+   ```
+
+3. **Build the search index**:
+   ```bash
+   docker compose run archivebox update --index-only
+   ```
+
+### With Bare Metal Install
+
+1. **Install Sonic**:
+   ```bash
+   # On Ubuntu/Debian
+   wget https://github.com/valeriansaliou/sonic/releases/download/v1.4.0/sonic_1.4.0_amd64.deb
+   sudo dpkg -i sonic_1.4.0_amd64.deb
+   
+   # Or using cargo
+   cargo install sonic-server
+   ```
+
+2. **Configure Sonic** (`/etc/sonic/config.cfg`):
+   ```toml
+   [server]
+   inet = "0.0.0.0:1491"
+   
+   [auth]
+   password = "YourSecurePassword"
+   
+   [store]
+   path = "/var/lib/sonic/store"
+   ```
+
+3. **Start Sonic**:
+   ```bash
+   sudo systemctl start sonic
+   sudo systemctl enable sonic
+   ```
+
+4. **Configure ArchiveBox**:
+   ```bash
+   archivebox config --set SEARCH_BACKEND_ENGINE=sonic
+   archivebox config --set SEARCH_BACKEND_HOST_NAME=localhost
+   archivebox config --set SEARCH_BACKEND_PASSWORD=YourSecurePassword
+   ```
+
+5. **Build the search index**:
+   ```bash
+   archivebox update --index-only
+   ```
+
+## Using Search
+
+### Web UI Search
+
+1. Navigate to your ArchiveBox instance (e.g., `http://localhost:8000`)
+2. Use the search bar at the top
+3. Enter search terms
+4. Results show matching snapshots with highlighted text
+
+### CLI Search
+
+```bash
+# Search for text in URLs and titles
+archivebox list --filter-url=example.com
+
+# Search by tag
+archivebox list --filter-tag=important
+
+# Filter by status
+archivebox list --filter-status=succeeded
+
+# Combine filters
+archivebox list --filter-url=news --filter-tag=tech
+```
+
+### Advanced Search
+
+```bash
+# Search with regex
+archivebox list --filter-url='.*github\.com/.*'
+
+# Filter by date range
+archivebox list --filter-after=2024-01-01
+archivebox list --filter-before=2024-12-31
+
+# Output as JSON
+archivebox list --filter-url=example --json
+```
+
+## Search Index Management
+
+### Building the Index
+
+After enabling Sonic or adding many snapshots:
+
+```bash
+# Rebuild entire search index
+archivebox update --index-only
+
+# Docker Compose version
+docker compose run archivebox update --index-only
+```
+
+### Updating the Index
+
+The search index updates automatically when:
+- Adding new snapshots
+- Updating existing snapshots
+- Changing tags
+
+Manual update:
+```bash
+archivebox update --index-only
+```
+
+### Resetting the Index
+
+If search results seem incorrect:
+
+```bash
+# Stop Sonic (if running)
+docker compose stop sonic
+
+# Delete index data
+rm -rf ./data/sonic/*
+
+# Start Sonic
+docker compose start sonic
+
+# Rebuild index
+docker compose run archivebox update --index-only
+```
+
+## Configuration Options
+
+### Search Backend Settings
+
+```bash
+# Choose search backend (ripgrep or sonic)
+archivebox config --set SEARCH_BACKEND_ENGINE=sonic
+
+# Sonic connection settings
+archivebox config --set SEARCH_BACKEND_HOST_NAME=sonic
+archivebox config --set SEARCH_BACKEND_PORT=1491
+archivebox config --set SEARCH_BACKEND_PASSWORD=YourPassword
+
+# Search behavior
+archivebox config --set SEARCH_FULL_TEXT=True
+```
+
+### Performance Tuning
+
+For Sonic in `sonic.cfg`:
+
+```toml
+[channel]
+# Increase for larger indexes
+max_results = 1000
+
+# Adjust for performance
+pool_inactive = 1800
+pool_flush = 60
+
+[store]
+# Increase for better performance
+compression_ratio = 2000
+```
+
+## Search Limitations
+
+### Ripgrep Backend
+
+- Slower on large collections
+- Searches file contents directly
+- No ranking/relevance scoring
+- May timeout on very large archives
+
+### Sonic Backend
+
+- Requires separate service
+- Uses memory for index
+- Needs periodic reindexing
+- Index size grows with collection
+
+## Troubleshooting
+
+### Sonic Not Connecting
+
+```bash
+# Check Sonic is running
+docker compose ps
+
+# Check logs
+docker compose logs sonic
+
+# Test connection
+telnet sonic 1491
+```
+
+### Search Returns No Results
+
+```bash
+# Verify search backend
+archivebox config | grep SEARCH
+
+# Rebuild index
+archivebox update --index-only
+
+# Check Sonic data
+ls -lh ./data/sonic/
+```
+
+### Slow Search Performance
+
+```bash
+# Switch to Sonic if using ripgrep
+archivebox config --set SEARCH_BACKEND_ENGINE=sonic
+
+# Increase Sonic resources (docker-compose.yml)
+services:
+  sonic:
+    mem_limit: 2g
+    cpus: 2
+```
+
+### Index Out of Date
+
+If Sonic was stopped for a while:
+
+```bash
+# Rebuild the search index
+docker compose run archivebox update --index-only
+```
+
+## Search Best Practices
+
+1. **Use Sonic for large collections** (> 10,000 snapshots)
+2. **Rebuild index regularly** if you modify files directly
+3. **Monitor Sonic memory usage** for very large indexes
+4. **Use specific search terms** for better results
+5. **Tag content** for easier categorization and filtering
+
+## See Also
+
+- [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) - All settings
+- [Setting up Search](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search) - Detailed setup guide
+- [Sonic Documentation](https://github.com/valeriansaliou/sonic) - Sonic search engine

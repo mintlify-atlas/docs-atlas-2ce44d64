@@ -1,80 +1,227 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get ArchiveBox running in 5 minutes with Docker Compose
+icon: rocket
 ---
 
-## Get started in three steps
+This guide will get you up and running with ArchiveBox using Docker Compose in just a few minutes.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+- Docker and Docker Compose installed on your system
+- 5 minutes of your time
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Docker Compose is the **recommended installation method** for the easiest install/update experience, best security, and all extras out-of-the-box.
 </Note>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Install Docker">
+    If you don't have Docker installed yet, download it from [docker.com/get-docker](https://docs.docker.com/get-docker/).
+  </Step>
+
+  <Step title="Create a Directory">
+    Create a new directory for your ArchiveBox data:
+
+    ```bash
+    mkdir -p ~/archivebox/data && cd ~/archivebox
+    ```
+  </Step>
+
+  <Step title="Download docker-compose.yml">
+    Download the Docker Compose configuration file:
+
+    ```bash
+    curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
+    ```
+
+    <Tip>
+      Review and edit the `docker-compose.yml` file to customize settings like admin credentials, ports, and environment variables.
+    </Tip>
+  </Step>
+
+  <Step title="Initialize ArchiveBox">
+    Run the initial setup to create the database and admin user:
+
+    ```bash
+    docker compose run archivebox init --setup
+    ```
+
+    This will:
+    - Create the SQLite database
+    - Set up the directory structure
+    - Prompt you to create an admin user (or use `ADMIN_USERNAME`/`ADMIN_PASSWORD` from docker-compose.yml)
+  </Step>
+
+  <Step title="Start the Server">
+    Start ArchiveBox as a background service:
+
+    ```bash
+    docker compose up
+    ```
+
+    <Info>
+      The server will start on `http://web.archivebox.localhost:8000` (public UI) and `http://admin.archivebox.localhost:8000` (admin UI).
+      
+      You can change the `LISTEN_HOST` in docker-compose.yml to customize the domain.
+    </Info>
+  </Step>
+</Steps>
+
+## Your First Archive
+
+Now that ArchiveBox is running, let's archive your first URL!
+
+<CodeGroup>
+```bash Docker Compose
+# Add a single URL
+docker compose run archivebox add 'https://example.com'
+
+# Add a URL with depth-1 crawling (follows links one level deep)
+docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
+
+# Import URLs from a file
+docker compose run -T archivebox add < bookmarks.html
+```
+
+```bash Plain Docker
+# Add a single URL
+docker run -it -v $PWD/data:/data archivebox/archivebox add 'https://example.com'
+
+# Add a URL with depth-1 crawling
+docker run -it -v $PWD/data:/data archivebox/archivebox add --depth=1 'https://news.ycombinator.com'
+
+# Import URLs from a file
+cat bookmarks.html | docker run -i -v $PWD/data:/data archivebox/archivebox add
+```
+
+```bash pip (Native)
+# First: pip install archivebox
+# Then navigate to your data directory
+
+# Add a single URL
+archivebox add 'https://example.com'
+
+# Add a URL with depth-1 crawling
+archivebox add --depth=1 'https://news.ycombinator.com'
+
+# Import URLs from a file
+archivebox add < bookmarks.html
+```
+</CodeGroup>
+
+## Accessing the Web UI
+
+Once the server is running, you can access:
+
+<CardGroup cols={2}>
+  <Card title="Public Archive" icon="globe">
+    **http://web.archivebox.localhost:8000**
+    
+    Browse your archived snapshots (requires login by default)
+  </Card>
+  <Card title="Admin Dashboard" icon="shield">
+    **http://admin.archivebox.localhost:8000**
+    
+    Manage snapshots, users, and settings
+  </Card>
+</CardGroup>
+
+<Warning>
+  The default configuration requires login to view snapshots. To allow public access, set these in docker-compose.yml:
+  
+  ```yaml
+  - PUBLIC_INDEX=True
+  - PUBLIC_SNAPSHOTS=True
+  - PUBLIC_ADD_VIEW=False  # Keep False to prevent anonymous archiving
+  ```
+</Warning>
+
+## Common Commands
+
+```bash
+# View ArchiveBox version and dependencies
+docker compose run archivebox version
+
+# Get help on available commands
+docker compose run archivebox help
+
+# Check archive status
+docker compose run archivebox status
+
+# List all archived URLs
+docker compose run archivebox list
+
+# Update/re-archive existing snapshots
+docker compose run archivebox update
+
+# Set configuration options
+docker compose run archivebox config --set TIMEOUT=120
+```
+
+## Optional: Install Browser Extension
+
+For real-time archiving as you browse, install the official ArchiveBox browser extension:
+
+- **Chrome/Brave/Edge**: [Chrome Web Store](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj)
+- **Firefox**: Coming soon!
+
+The extension lets you archive the current page with one click, or automatically save all browsing history.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Learn More About Installation" icon="download" href="/installation">
+    Explore other installation methods (apt, brew, pip)
+  </Card>
+  <Card title="Configuration Guide" icon="gear" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">
+    Customize ArchiveBox settings and behavior
+  </Card>
+  <Card title="Usage Guide" icon="book" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">
+    Learn all the ways to use ArchiveBox
+  </Card>
+  <Card title="Scheduled Archiving" icon="clock" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving">
+    Set up automatic imports from RSS feeds
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port 8000 is already in use">
+    Change the port mapping in `docker-compose.yml`:
+    ```yaml
+    ports:
+      - 8080:8000  # Use port 8080 instead
+    ```
+  </Accordion>
+
+  <Accordion title="Permission errors on Linux">
+    Set the correct UID/GID in docker-compose.yml:
+    ```yaml
+    environment:
+      - PUID=1000  # Your user ID (run: id -u)
+      - PGID=1000  # Your group ID (run: id -g)
+    ```
+  </Accordion>
+
+  <Accordion title="Downloads timing out">
+    Increase the timeout value:
+    ```bash
+    docker compose run archivebox config --set TIMEOUT=120
+    ```
+  </Accordion>
+
+  <Accordion title="Chrome/Chromium not found">
+    The Docker image includes Chrome by default. For native installs:
+    ```bash
+    # Install Playwright's Chromium
+    pip install playwright
+    playwright install --with-deps chromium
+    ```
+  </Accordion>
+</AccordionGroup>
+
+For more help, see the [Troubleshooting Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting).

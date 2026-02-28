@@ -1,0 +1,644 @@
+---
+title: 'Creating Custom Plugins'
+description: 'Guide to developing custom ArchiveBox plugins'
+---
+
+## Plugin Development Guide
+
+ArchiveBox's plugin system allows you to extend its functionality by creating custom plugins. Plugins are self-contained modules that hook into the archiving lifecycle.
+
+## Plugin Structure
+
+A minimal plugin consists of:
+
+```
+plugins/my_plugin/
+├── config.json              # Configuration schema (required)
+├── on_Snapshot__50_my_plugin.py  # Hook implementation
+├── templates/
+│   └── icon.html           # UI template
+└── tests/
+    └── test_my_plugin.py   # Plugin tests
+```
+
+### Directory Naming
+
+Plugin directory names should be:
+- Lowercase
+- Use underscores for spaces
+- Descriptive of the plugin's purpose
+
+Examples: `screenshot`, `parse_html_urls`, `search_backend_sqlite`
+
+### Hook File Naming
+
+Hook files follow the pattern:
+```
+on_{Lifecycle}__{Priority}_{name}.{ext}
+```
+
+Components:
+- **Lifecycle**: When the hook runs (`Binary`, `Crawl`, `Snapshot`)
+- **Priority**: Execution order (00-99, lower runs first)
+- **Name**: Descriptive name (matches plugin directory)
+- **Extension**: `.py`, `.js`, or `.sh`
+
+Examples:
+- `on_Binary__10_npm_install.py` - Install npm dependencies
+- `on_Crawl__00_chrome_launch.js` - Start Chrome at crawl beginning
+- `on_Snapshot__51_screenshot.js` - Take screenshot of snapshot
+
+## Configuration Schema
+
+Every plugin must have a `config.json` with JSON Schema validation:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "MY_PLUGIN_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "x-aliases": ["USE_MY_PLUGIN"],
+      "description": "Enable my plugin"
+    },
+    "MY_PLUGIN_TIMEOUT": {
+      "type": "integer",
+      "default": 60,
+      "minimum": 5,
+      "x-fallback": "TIMEOUT",
+      "description": "Timeout in seconds"
+    }
+  }
+}
+```
+
+### Configuration Features
+
+#### Type Validation
+Supported types: `boolean`, `integer`, `number`, `string`, `array`, `object`
+
+#### Aliases
+Provide alternate names for backward compatibility:
+```json
+"x-aliases": ["OLD_NAME", "ALTERNATIVE_NAME"]
+```
+
+#### Fallbacks
+Inherit values from other config options:
+```json
+"x-fallback": "TIMEOUT"  // Use global TIMEOUT if not set
+```
+
+#### Plugin Dependencies
+Declare required plugins:
+```json
+"required_plugins": ["chrome", "npm"]
+```
+
+## Hook Implementation
+
+### Python Hooks
+
+```python
+#!/usr/bin/env python3
+"""
+My custom plugin.
+
+Requires: some-binary
+
+Usage: on_Snapshot__50_my_plugin.py --url=<url> --snapshot-id=<uuid>
+Output: Writes my_plugin/output.txt
+"""
+
+import os
+import sys
+import json
+import subprocess
+from pathlib import Path
+
+def get_env(key: str, default: str = "") -> str:
+    """Get environment variable."""
+    return os.environ.get(key, default)
+
+def get_env_bool(key: str, default: bool = False) -> bool:
+    """Get boolean environment variable."""
+    value = os.environ.get(key, "").lower()
+    if value in ("true", "1", "yes"):
+        return True
+    if value in ("false", "0", "no"):
+        return False
+    return default
+
+def main():
+    # Check if plugin is enabled
+    if not get_env_bool("MY_PLUGIN_ENABLED", True):
+        print("Skipping my_plugin (MY_PLUGIN_ENABLED=False)", file=sys.stderr)
+        sys.exit(0)  # Exit 0 = skipped (not an error)
+    
+    # Parse command-line arguments
+    args = {}
+    for arg in sys.argv[1:]:
+        if "=" in arg:
+            key, value = arg.split("=", 1)
+            args[key.lstrip("-")] = value
+    
+    url = args.get("url")
+    snapshot_id = args.get("snapshot-id")
+    
+    if not url or not snapshot_id:
+        print("Error: --url and --snapshot-id required", file=sys.stderr)
+        sys.exit(1)  # Exit 1 = error
+    
+    # Get configuration
+    timeout = int(get_env("MY_PLUGIN_TIMEOUT", "60"))
+    
+    # Create output directory
+    output_dir = Path("my_plugin")
+    output_dir.mkdir(exist_ok=True)
+    
+    # Run your plugin logic
+    try:
+        result = subprocess.run(
+            ["some-binary", url],
+            capture_output=True,
+            timeout=timeout,
+            check=True
+        )
+        
+        # Save output
+        output_file = output_dir / "output.txt"
+        output_file.write_text(result.stdout.decode())
+        
+        # Emit JSONL result (for indexing)
+        print(json.dumps({
+            "url": url,
+            "snapshot_id": snapshot_id,
+            "plugin": "my_plugin",
+            "status": "success",
+            "output_file": str(output_file)
+        }))
+        
+        sys.exit(0)  # Success
+        
+    except subprocess.TimeoutExpired:
+        print(f"Error: Timeout after {timeout}s", file=sys.stderr)
+        sys.exit(1)  # Error
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)  # Error
+
+if __name__ == "__main__":
+    main()
+```
+
+### JavaScript Hooks
+
+```javascript
+#!/usr/bin/env node
+/**
+ * My custom plugin.
+ *
+ * Requires: chrome plugin
+ *
+ * Usage: on_Snapshot__50_my_plugin.js --url=<url> --snapshot-id=<uuid>
+ * Output: Writes my_plugin/output.json
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// Add NODE_MODULES_DIR to module resolution
+if (process.env.NODE_MODULES_DIR) {
+    module.paths.unshift(process.env.NODE_MODULES_DIR);
+}
+
+// Import chrome utilities
+const {
+    getEnv,
+    getEnvBool,
+    parseArgs,
+    connectToPage,
+} = require('../chrome/chrome_utils.js');
+
+// Check if plugin is enabled
+if (!getEnvBool('MY_PLUGIN_ENABLED', true)) {
+    console.error('Skipping my_plugin (MY_PLUGIN_ENABLED=False)');
+    process.exit(0);  // Exit 0 = skipped
+}
+
+const puppeteer = require('puppeteer-core');
+
+async function main() {
+    // Parse arguments
+    const args = parseArgs(process.argv.slice(2));
+    const url = args.url;
+    const snapshotId = args['snapshot-id'];
+    
+    if (!url || !snapshotId) {
+        console.error('Error: --url and --snapshot-id required');
+        process.exit(1);
+    }
+    
+    // Get configuration
+    const timeout = parseInt(getEnv('MY_PLUGIN_TIMEOUT', '60'), 10) * 1000;
+    
+    // Create output directory
+    const outputDir = 'my_plugin';
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    try {
+        // Connect to existing Chrome session
+        const { browser, page } = await connectToPage(url, { timeout });
+        
+        // Your plugin logic here
+        const data = await page.evaluate(() => {
+            return {
+                title: document.title,
+                links: Array.from(document.querySelectorAll('a')).map(a => a.href)
+            };
+        });
+        
+        // Save output
+        const outputFile = path.join(outputDir, 'output.json');
+        fs.writeFileSync(outputFile, JSON.stringify(data, null, 2));
+        
+        // Emit JSONL result
+        console.log(JSON.stringify({
+            url,
+            snapshot_id: snapshotId,
+            plugin: 'my_plugin',
+            status: 'success',
+            output_file: outputFile
+        }));
+        
+        // Don't close browser - reused by other plugins
+        process.exit(0);
+        
+    } catch (error) {
+        console.error(`Error: ${error.message}`);
+        process.exit(1);
+    }
+}
+
+main();
+```
+
+## Chrome-Based Plugins
+
+Plugins that use Chrome **must** follow these rules:
+
+### Dependency Rules
+
+<Warning>
+Chrome plugins **CANNOT** depend on ArchiveBox or Django.
+They may **ONLY** depend on:
+- `archivebox/plugins/chrome/chrome_utils.js`
+- `archivebox/plugins/chrome/tests/chrome_test_utils.py` (for tests)
+</Warning>
+
+### Using chrome_utils.js
+
+All Chrome operations must use the shared utilities:
+
+```javascript
+const {
+    getEnv,              // Get environment variable
+    getEnvBool,          // Get boolean environment variable
+    parseArgs,           // Parse command-line arguments
+    connectToPage,       // Connect to existing Chrome session
+    waitForPageLoaded,   // Wait for page to load
+    readTargetId,        // Read Chrome target ID
+} = require('../chrome/chrome_utils.js');
+```
+
+### Connecting to Chrome
+
+Plugins should connect to an existing session, not launch their own:
+
+```javascript
+// Good - reuse existing session
+const { browser, page } = await connectToPage(url, { timeout });
+
+// Bad - don't launch your own browser!
+// const browser = await puppeteer.launch(...);
+```
+
+The chrome plugin handles launching. Your plugin just connects.
+
+## Plugin Lifecycle
+
+### Binary Hooks (`on_Binary__*`)
+
+Run once to install dependencies:
+
+```python
+#!/usr/bin/env python3
+# on_Binary__10_install_deps.py
+
+import subprocess
+
+subprocess.run(["npm", "install", "some-package"], check=True)
+```
+
+### Crawl Hooks (`on_Crawl__*`)
+
+Run once per crawl to set up resources:
+
+```javascript
+#!/usr/bin/env node
+// on_Crawl__00_setup.js
+
+// Launch Chrome, initialize databases, etc.
+```
+
+### Snapshot Hooks (`on_Snapshot__*`)
+
+Run for each snapshot to extract content:
+
+```javascript
+#!/usr/bin/env node
+// on_Snapshot__50_extract.js
+
+// Extract data from the page
+```
+
+### Hook Execution Order
+
+Hooks run in priority order (00-99):
+
+```
+on_Crawl__00_chrome_launch.js    ← Chrome starts
+on_Crawl__10_install_extensions.js
+
+on_Snapshot__15_modalcloser.js   ← Prepare page
+on_Snapshot__50_singlefile.py    ← Extract content
+on_Snapshot__51_screenshot.js    ← Same priority = parallel
+on_Snapshot__54_title.js
+```
+
+## Plugin Testing
+
+Tests must be completely isolated from ArchiveBox:
+
+```python
+#!/usr/bin/env python3
+# tests/test_my_plugin.py
+
+import unittest
+import tempfile
+import subprocess
+from pathlib import Path
+
+class TestMyPlugin(unittest.TestCase):
+    def test_plugin_execution(self):
+        """Test plugin runs successfully."""
+        
+        # Create isolated test directory
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Replicate production directory structure
+            snapshot_dir = Path(tmpdir) / "users" / "testuser" / "snapshots" / "20240101" / "example.com" / "test-uuid"
+            plugin_dir = snapshot_dir / "my_plugin"
+            plugin_dir.mkdir(parents=True)
+            
+            # Get plugin hook path
+            hook = Path(__file__).parent.parent / "on_Snapshot__50_my_plugin.py"
+            
+            # Run hook in its output directory
+            result = subprocess.run(
+                ["python3", str(hook), "--url=https://example.com", "--snapshot-id=test-uuid"],
+                cwd=str(plugin_dir),
+                env={
+                    "MY_PLUGIN_ENABLED": "True",
+                    "MY_PLUGIN_TIMEOUT": "30",
+                },
+                capture_output=True,
+                timeout=60
+            )
+            
+            # Verify success
+            self.assertEqual(result.returncode, 0, f"Plugin failed: {result.stderr.decode()}")
+            
+            # Verify output exists
+            output_file = plugin_dir / "my_plugin" / "output.txt"
+            self.assertTrue(output_file.exists(), "Output file not created")
+            
+            # Verify JSONL output
+            stdout = result.stdout.decode().strip()
+            self.assertIn('"status": "success"', stdout)
+
+if __name__ == "__main__":
+    unittest.main()
+```
+
+### Testing Chrome Plugins
+
+Chrome plugins must test **both execution paths**:
+
+1. **Connect to existing session** (~50% of code)
+2. **Launch own browser** (~30% of code)
+3. **Shared logic** (~20% of code)
+
+Testing only one path = max 50% coverage!
+
+```python
+def test_with_existing_session(self):
+    """Test connecting to existing Chrome session."""
+    # Start Chrome session first
+    # Then run plugin
+
+def test_without_session(self):
+    """Test plugin launches own browser as fallback."""
+    # Don't start Chrome
+    # Plugin should handle it
+```
+
+Use `archivebox/plugins/chrome/tests/chrome_test_utils.py` for Chrome setup.
+
+## Plugin Templates
+
+Plugins can provide UI templates:
+
+### Icon Template
+
+```html
+<!-- templates/icon.html -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+  <path d="M12 2L2 7v10c0 5.5 3.8 9.7 9 11 5.2-1.3 9-5.5 9-11V7l-10-5z" fill="currentColor"/>
+</svg>
+```
+
+### Card Template
+
+```html
+<!-- templates/card.html -->
+<div class="plugin-card">
+  <h3>{{ plugin_name }}</h3>
+  <p>{{ description }}</p>
+  <a href="{{ output_file }}">View Output</a>
+</div>
+```
+
+### Full Template
+
+```html
+<!-- templates/full.html -->
+<div class="plugin-full">
+  <h2>{{ plugin_name }} Output</h2>
+  <pre>{{ output_content }}</pre>
+</div>
+```
+
+## Best Practices
+
+### Configuration
+
+1. **Always check enabled flag** at the start of your hook
+2. **Use fallbacks** for common settings (`TIMEOUT`, `USER_AGENT`)
+3. **Provide sensible defaults** in config.json
+4. **Validate configuration** with JSON Schema constraints
+
+### Error Handling
+
+1. **Exit codes**:
+   - `0` = Success or skipped (plugin disabled)
+   - `1` = Error
+2. **Print errors to stderr**: `console.error()` or `sys.stderr`
+3. **Print results to stdout**: JSONL output
+4. **Handle timeouts gracefully**
+
+### Performance
+
+1. **Reuse resources**: Don't launch new Chrome sessions
+2. **Run in parallel**: Use same priority number
+3. **Minimize dependencies**: Keep plugins lightweight
+4. **Cache expensive operations**
+
+### Output
+
+1. **Create plugin subdirectory**: `my_plugin/output.txt`
+2. **Use descriptive filenames**: Not `output.txt`, but `metadata.json`
+3. **Emit JSONL** for indexing: `{"url": ..., "status": ...}`
+4. **Handle existing output**: Overwrite or skip as appropriate
+
+### Dependencies
+
+1. **Declare in config.json**: `required_plugins` array
+2. **Check binary exists**: Before running commands
+3. **Provide installation hooks**: `on_Binary__*` or `on_Crawl__*`
+4. **Document requirements**: In docstring
+
+## Plugin Discovery
+
+ArchiveBox automatically discovers plugins in:
+
+1. **Built-in plugins**: `archivebox/plugins/`
+2. **User plugins**: `~/.archivebox/plugins/` (if supported)
+3. **Data dir plugins**: `DATA_DIR/plugins/` (if supported)
+
+Place your plugin in any of these locations.
+
+## Example: Simple Extractor
+
+Let's create a plugin that extracts all image URLs:
+
+```
+plugins/image_urls/
+├── config.json
+├── on_Snapshot__60_image_urls.js
+└── tests/
+    └── test_image_urls.py
+```
+
+**config.json**:
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required_plugins": ["chrome"],
+  "properties": {
+    "IMAGE_URLS_ENABLED": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable image URL extraction"
+    }
+  }
+}
+```
+
+**on_Snapshot__60_image_urls.js**:
+```javascript
+#!/usr/bin/env node
+const fs = require('fs');
+const { getEnvBool, parseArgs, connectToPage } = require('../chrome/chrome_utils.js');
+
+if (!getEnvBool('IMAGE_URLS_ENABLED', true)) {
+    console.error('Skipping image_urls (IMAGE_URLS_ENABLED=False)');
+    process.exit(0);
+}
+
+const puppeteer = require('puppeteer-core');
+
+async function main() {
+    const args = parseArgs(process.argv.slice(2));
+    const { browser, page } = await connectToPage(args.url);
+    
+    const images = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('img')).map(img => img.src);
+    });
+    
+    fs.mkdirSync('image_urls', { recursive: true });
+    fs.writeFileSync('image_urls/urls.json', JSON.stringify(images, null, 2));
+    
+    console.log(JSON.stringify({
+        url: args.url,
+        plugin: 'image_urls',
+        status: 'success',
+        count: images.length
+    }));
+}
+
+main().catch(err => {
+    console.error(err);
+    process.exit(1);
+});
+```
+
+Done! This plugin will extract all image URLs from each snapshot.
+
+## Publishing Plugins
+
+To share your plugin:
+
+1. **Create a Git repository** with your plugin code
+2. **Document usage** in README.md
+3. **Include examples** of output
+4. **Publish on GitHub** or other hosting
+5. **Share with community** on ArchiveBox forums/Discord
+
+Users can install by copying to their plugins directory.
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card
+    title="Plugin Overview"
+    icon="puzzle-piece"
+    href="/plugins/overview"
+  >
+    Learn about plugin architecture and types
+  </Card>
+  <Card
+    title="Chrome Plugins"
+    icon="browser"
+    href="/plugins/chrome-plugins"
+  >
+    Deep dive into Chrome-based plugin development
+  </Card>
+</CardGroup>

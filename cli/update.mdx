@@ -1,0 +1,422 @@
+---
+title: archivebox update
+description: Update and migrate existing snapshots, reconcile database with filesystem
+---
+
+The `update` command updates existing snapshots, migrates old directory structures, reconciles the database with filesystem, and re-queues snapshots for archiving.
+
+## Basic Usage
+
+```bash
+archivebox update
+```
+
+```bash docker
+docker compose run archivebox update
+```
+
+## What It Does
+
+### Full Update (No Filters)
+
+Runs a comprehensive three-phase operation:
+
+**Phase 1: Filesystem Migration (0.8.x → 0.9.x)**
+- Drains old `archive/` directories by moving to new layout
+- Migrates from `archive/<timestamp>/` to `users/<user>/snapshots/YYYYMMDD/<domain>/<uuid>/`
+- Creates symlinks in `archive/` pointing to new locations
+- Only processes real directories (skips already-migrated symlinks)
+
+**Phase 2: Database Reconciliation**
+- Scans entire database from most recent to least recent
+- Reconciles `index.json` files with database
+- Merges titles, tags, and archive results
+- Re-queues snapshots for archiving
+
+**Phase 3: Deduplication (disabled)**
+- Reserved for future duplicate detection and merging
+
+### Filtered Update (With Filters)
+
+Only runs Phase 2 on matching snapshots:
+- Queries database for matching snapshots
+- Reconciles and re-queues only those snapshots
+- No filesystem operations
+
+## Options
+
+### `--filter-type`, `-t`
+
+Type of pattern matching for filtering URLs.
+
+```bash
+archivebox update --filter-type=domain 'example.com'
+```
+
+**Available types:**
+- `exact` - Exact URL match (default)
+- `substring` - URLs containing substring
+- `domain` - All URLs from domain
+- `regex` - Regex pattern matching
+- `tag` - Match by tag
+- `timestamp` - Match specific timestamp
+
+### `--before`
+
+Only update snapshots bookmarked before the given UNIX timestamp.
+
+```bash
+archivebox update --before=1640995200
+```
+
+### `--after`
+
+Only update snapshots bookmarked after the given UNIX timestamp.
+
+```bash
+archivebox update --after=1609459200
+```
+
+### `--resume`
+
+Resume filesystem migration from specific timestamp (Phase 1 only).
+
+```bash
+archivebox update --resume=1234567890
+```
+
+Useful if migration was interrupted.
+
+### `--batch-size`
+
+Commit database changes every N snapshots (default: 100).
+
+```bash
+archivebox update --batch-size=50
+```
+
+Lower values use less memory but may be slower.
+
+### `--continuous`
+
+Run continuously as a background worker, repeating every 60 seconds.
+
+```bash
+archivebox update --continuous
+```
+
+Useful for maintaining consistency in development environments.
+
+### Filter Patterns
+
+Filter specific URLs or patterns to update.
+
+```bash
+archivebox update 'example.com'
+archivebox update 'https://example.com' 'https://example.org'
+```
+
+## Examples
+
+### Full Archive Update
+
+Update all snapshots and migrate filesystem:
+
+```bash
+archivebox update
+```
+
+Output:
+```
+[*] Checking for pending migrations...
+[*] Phase 1: Draining old archive/ directories (0.8.x → 0.9.x migration)...
+    Found 1234 old directories to drain
+    [1234] Migrated: 1234567890
+
+[*] Phase 2: Processing all database snapshots (most recent first)...
+    [*] Processing 5000 snapshots from database...
+    [5000/5000] Processed...
+
+Archive Update Complete
+
+Phase 1 (Drain Old Dirs):
+  Checked:     1234
+  Migrated:    1234
+  Skipped:     0
+  Invalid:     0
+
+Phase 2 (Process DB):
+  Processed:   5000
+  Reconciled:  5000
+  Queued:      5000
+```
+
+### Update Specific Domain
+
+Re-process all snapshots from a domain:
+
+```bash
+archivebox update --filter-type=domain 'example.com'
+```
+
+### Update Recent Snapshots
+
+Update snapshots from last 30 days:
+
+```bash
+# Calculate 30 days ago timestamp
+THIRTY_DAYS_AGO=$(date -d "30 days ago" +%s)
+archivebox update --after=$THIRTY_DAYS_AGO
+```
+
+### Update Date Range
+
+Update snapshots from specific time period:
+
+```bash
+# January 2024
+archivebox update --after=1704067200 --before=1706745600
+```
+
+### Update Tagged Snapshots
+
+Re-archive snapshots with specific tag:
+
+```bash
+archivebox update --filter-type=tag 'needs-update'
+```
+
+### Resume Interrupted Migration
+
+If migration was interrupted, resume from last processed timestamp:
+
+```bash
+archivebox update --resume=1234567890
+```
+
+### Update with Custom Batch Size
+
+For large archives, use smaller batches to reduce memory usage:
+
+```bash
+archivebox update --batch-size=50
+```
+
+### Continuous Update Worker
+
+Run update continuously in background:
+
+```bash
+archivebox update --continuous &
+```
+
+Or in Docker:
+
+```bash
+docker compose run -d archivebox update --continuous
+```
+
+## Output Details
+
+### Phase 1: Filesystem Migration
+
+```
+[DEBUG Phase1] Scanning for old directories in archive/...
+[DEBUG Phase1] Total entries in archive/: 2500
+[DEBUG Phase1] Real directories (not symlinks): 1234
+[*] Found 1234 old directories to drain
+
+[DEBUG Phase1] Snapshot abc123: fs_version=0.8.0, needs_migration=True
+[DEBUG Phase1] Migrating 1234567890 → users/user/snapshots/20240101/example.com/abc123
+[DEBUG Phase1] Copied 45 files
+    [1] Migrated: 1234567890
+```
+
+### Phase 2: Database Reconciliation
+
+```
+[*] Processing 5000 snapshots from database (most recent first)...
+[DEBUG Phase2] Snapshot abc123: fs_version=0.9.0, needs_migration=False
+    [100/5000] Processed...
+    [200/5000] Processed...
+    ...
+```
+
+## Understanding Migrations
+
+### Filesystem Version History
+
+- **0.4.x** - `archive/<timestamp>/` with JSON index
+- **0.7.x** - Added `archive/<timestamp>/index.json` per snapshot
+- **0.8.x** - Same as 0.7.x, added more metadata
+- **0.9.x** - New layout: `users/<user>/snapshots/YYYYMMDD/<domain>/<uuid>/`
+
+### Migration Strategy
+
+1. **Leave symlinks** - Old `archive/<timestamp>` becomes symlink to new location
+2. **Preserve compatibility** - Old paths still work via symlinks
+3. **Lazy migration** - Only migrates directories as needed
+4. **Safe operation** - Copies files before deleting originals
+
+## When to Use Update
+
+### After Upgrading ArchiveBox
+
+```bash
+pip install --upgrade archivebox
+archivebox update
+```
+
+Ensures all snapshots use latest schema and directory structure.
+
+### After Config Changes
+
+If you changed archiving settings, re-run extractors:
+
+```bash
+archivebox config --set SAVE_SCREENSHOT=True
+archivebox update --filter-type=tag 'important'
+```
+
+### Reconcile Database with Filesystem
+
+If you manually moved/edited files:
+
+```bash
+archivebox update
+```
+
+Reconciles `index.json` files with database.
+
+### Fix Failed Archives
+
+Re-queue failed snapshots:
+
+```bash
+archivebox search --status=failed  # Find failed snapshots
+archivebox update --filter-type=tag 'failed'  # Re-queue them
+```
+
+### Import Orphaned Directories
+
+If snapshots exist on disk but not in database:
+
+```bash
+archivebox init    # Discovers orphans
+archivebox update  # Reconciles and queues
+```
+
+## Reconciliation Process
+
+For each snapshot, `update` reconciles data from multiple sources:
+
+1. **Database** - Source of truth for most fields
+2. **index.json** - Per-snapshot metadata file
+3. **Filesystem** - Actual archived content
+
+Merges:
+- Title (uses most descriptive)
+- Tags (combines all unique tags)
+- Archive results (updates status/size)
+- Download timestamps
+
+## Troubleshooting
+
+### Migration running slowly
+
+**Solution:** Increase batch size:
+```bash
+archivebox update --batch-size=500
+```
+
+Or skip Phase 1 using filters:
+```bash
+archivebox update --filter-type=substring ''  # Only Phase 2
+```
+
+### "Snapshot has directory but still needs migration"
+
+**Solution:** This indicates inconsistent state. Force migration:
+```bash
+archivebox shell
+>>> from archivebox.core.models import Snapshot
+>>> for s in Snapshot.objects.filter(fs_version='0.8.0'):
+...     s.fs_version = '0.9.0'
+...     s.save()
+```
+
+### Orphan snapshots detected
+
+Shown in output:
+```
+[DEBUG Phase2] Orphan snapshot abc123 - marking as migrated without filesystem operation
+```
+
+**These are snapshots in database without files on disk.**
+
+**Solution:** They're automatically marked as migrated and re-queued. The orchestrator will archive them fresh.
+
+### Database and filesystem out of sync
+
+**Solution:** Run full update:
+```bash
+archivebox update
+```
+
+This reconciles all differences.
+
+### "Skipping snapshot: missing crawl"
+
+**Solution:** Snapshots need valid Crawl references. Update creates them:
+```bash
+[DEBUG Phase1] Created missing crawl for snapshot abc123
+```
+
+This is automatic during Phase 1.
+
+## Performance Considerations
+
+- **Large archives:** Use `--batch-size=50` to reduce memory
+- **Resume capability:** If interrupted, use `--resume=<timestamp>`
+- **Filtered updates:** Much faster than full updates
+- **Continuous mode:** Useful for development, not production
+
+## Safety Features
+
+1. **Non-destructive** - Never deletes data without confirmation
+2. **Atomic commits** - Changes committed in batches
+3. **Resume support** - Can restart interrupted migrations
+4. **Symlink preservation** - Old paths continue working
+5. **Orphan handling** - Gracefully handles missing files/records
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="init" icon="rocket" href="/cli/init">
+    Initialize and discover orphans
+  </Card>
+  <Card title="add" icon="plus" href="/cli/add">
+    Add new snapshots with latest schema
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check archive health
+  </Card>
+  <Card title="remove" icon="trash" href="/cli/remove">
+    Remove outdated snapshots
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+1. **After upgrades:** Always run `archivebox update` after version updates
+2. **Before bulk operations:** Update to ensure consistent state
+3. **Regular reconciliation:** Run weekly on large archives
+4. **Monitor progress:** Check logs in `logs/errors.log`
+5. **Backup first:** Always backup before running full update
+
+```bash
+# Safe update workflow
+cp -r . ../archive-backup/  # Backup
+archivebox update            # Update
+archivebox status            # Verify
+```

@@ -1,0 +1,433 @@
+---
+title: 'CLI Usage'
+description: 'Command-line interface usage guide for ArchiveBox'
+icon: 'terminal'
+---
+
+## Overview
+
+ArchiveBox provides a powerful command-line interface for managing your web archive. All commands follow the pattern `archivebox [subcommand] [--options]` and can be run directly on your host or via Docker.
+
+<Info>
+  All ArchiveBox CLI commands must be run from inside a data directory, or you can set the `DATA_DIR` environment variable to specify the location.
+</Info>
+
+## Getting Started
+
+### Initialize a New Archive
+
+```bash
+mkdir -p ~/archivebox/data   # create a new data dir anywhere
+cd ~/archivebox/data         # IMPORTANT: cd into the directory
+
+archivebox init --setup      # initialize the collection
+```
+
+### Docker Equivalents
+
+All CLI commands work the same way whether using Docker or not:
+
+```bash
+# With Docker Compose
+docker compose run archivebox [subcommand] [--options]
+
+# With Docker
+docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [--options]
+
+# Native installation
+archivebox [subcommand] [--options]
+```
+
+## Core Commands
+
+### Administration
+
+<AccordionGroup>
+  <Accordion title="archivebox help" icon="circle-question">
+    Display help information and list all available subcommands.
+    
+    ```bash
+    archivebox help
+    archivebox [subcommand] --help  # get help for specific command
+    ```
+  </Accordion>
+
+  <Accordion title="archivebox version" icon="code-branch">
+    Show version information and check dependencies.
+    
+    ```bash
+    archivebox version
+    ```
+    
+    This displays:
+    - ArchiveBox version
+    - Python version
+    - Django version
+    - SQLite version
+    - Installed dependencies and their status
+  </Accordion>
+
+  <Accordion title="archivebox init" icon="gear">
+    Initialize a new archive or run migrations on an existing one.
+    
+    ```bash
+    archivebox init --setup  # first-time setup with dependency installation
+    archivebox init          # run migrations on existing archive
+    ```
+    
+    <Warning>
+      Safe to run multiple times - this is also how you update to new versions.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="archivebox config" icon="sliders">
+    View and modify configuration settings.
+    
+    ```bash
+    # View entire config
+    archivebox config
+    
+    # View a specific value
+    archivebox config --get TIMEOUT
+    
+    # Set a configuration value
+    archivebox config --set TIMEOUT=120
+    archivebox config --set CHROME_BINARY=chromium
+    archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+    ```
+  </Accordion>
+
+  <Accordion title="archivebox status" icon="circle-info">
+    View archive statistics and status information.
+    
+    ```bash
+    archivebox status
+    ```
+    
+    Shows:
+    - Total snapshots
+    - Disk usage
+    - Database size
+    - Configuration summary
+  </Accordion>
+</AccordionGroup>
+
+### Adding Content
+
+<AccordionGroup>
+  <Accordion title="archivebox add" icon="plus">
+    Add new URLs to your archive.
+    
+    ```bash
+    # Add a single URL
+    archivebox add 'https://example.com'
+    
+    # Add with depth for recursive crawling
+    archivebox add --depth=1 'https://news.ycombinator.com'
+    
+    # Add from stdin
+    echo 'https://example.com' | archivebox add
+    
+    # Add from a file
+    archivebox add < ~/Downloads/bookmarks.html
+    
+    # Add with tags
+    archivebox add --tag=blog,important 'https://example.com'
+    
+    # Add using specific parser
+    archivebox add --parser=generic_rss < feed.xml
+    ```
+    
+    <Note>
+      When using Docker with stdin, add the `-i` flag:
+      ```bash
+      echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
+      ```
+    </Note>
+    
+    **Depth Options:**
+    - `--depth=0` - Only archive the exact URL provided (default)
+    - `--depth=1` - Archive the URL and all links found on the page
+    - `--depth=2-4` - Continue recursively (use with caution!)
+  </Accordion>
+
+  <Accordion title="archivebox schedule" icon="clock">
+    Set up scheduled imports from RSS feeds or other sources.
+    
+    ```bash
+    archivebox schedule --every=day --depth=1 'https://example.com/feed.rss'
+    archivebox schedule --help  # see all scheduling options
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Managing Content
+
+<AccordionGroup>
+  <Accordion title="archivebox list" icon="list">
+    List and filter snapshots in your archive.
+    
+    ```bash
+    # List all snapshots
+    archivebox list
+    
+    # List with specific columns
+    archivebox list --csv=timestamp,url,title
+    
+    # Export as HTML
+    archivebox list --html --with-headers > index.html
+    
+    # Export as JSON
+    archivebox list --json --with-headers > index.json
+    
+    # Filter by status
+    archivebox list --filter-type=search --filter-pattern='example'
+    ```
+    
+    <Tip>
+      When using Docker Compose with piped output, add the `-T` flag:
+      ```bash
+      docker compose run -T archivebox list --json > index.json
+      ```
+    </Tip>
+  </Accordion>
+
+  <Accordion title="archivebox update" icon="arrows-rotate">
+    Re-archive existing snapshots to update or complete their content.
+    
+    ```bash
+    # Update all snapshots
+    archivebox update
+    
+    # Update specific URL
+    archivebox update 'https://example.com'
+    
+    # Update only failed extractors
+    archivebox update --status=failed
+    ```
+  </Accordion>
+
+  <Accordion title="archivebox remove" icon="trash">
+    Remove snapshots from your archive.
+    
+    ```bash
+    # Remove specific URL
+    archivebox remove 'https://example.com'
+    
+    # Remove by filter
+    archivebox remove --filter-type=domain --filter-pattern='example.com'
+    
+    # Preview what would be removed (dry run)
+    archivebox remove --filter-type=domain --filter-pattern='example.com' --dry-run
+    ```
+    
+    <Warning>
+      This permanently deletes snapshot data. Use `--dry-run` first to preview.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+### Server Management
+
+<AccordionGroup>
+  <Accordion title="archivebox server" icon="server">
+    Start the ArchiveBox web server.
+    
+    ```bash
+    # Start on default port 8000
+    archivebox server
+    
+    # Start on specific host/port
+    archivebox server 0.0.0.0:8000
+    
+    # With Docker Compose (recommended)
+    docker compose up
+    ```
+    
+    The server provides two UIs:
+    - `http://web.archivebox.localhost:8000` - Public interface
+    - `http://admin.archivebox.localhost:8000` - Admin interface
+    
+    <Tip>
+      Change the base domain with the `LISTEN_HOST` environment variable.
+    </Tip>
+  </Accordion>
+
+  <Accordion title="archivebox manage" icon="user-gear">
+    Run Django management commands.
+    
+    ```bash
+    # Create admin user
+    archivebox manage createsuperuser
+    
+    # Run database migrations
+    archivebox manage migrate
+    
+    # Access Django shell
+    archivebox manage shell
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Advanced Commands
+
+<AccordionGroup>
+  <Accordion title="archivebox shell" icon="terminal">
+    Enter an interactive Python shell with Django models loaded.
+    
+    ```bash
+    archivebox shell
+    ```
+    
+    See [Python API Usage](/usage/python-api) for more details.
+  </Accordion>
+
+  <Accordion title="archivebox persona" icon="user">
+    Manage browser personas for authenticated archiving.
+    
+    ```bash
+    # Create persona and import cookies from Chrome
+    archivebox persona create --import=chrome personal
+    
+    # List personas
+    archivebox persona list
+    
+    # Use persona when archiving
+    archivebox add --persona=personal 'https://example.com'
+    ```
+  </Accordion>
+
+  <Accordion title="archivebox extract" icon="file-zipper">
+    Run specific extractors on existing snapshots.
+    
+    ```bash
+    # Extract specific output type
+    archivebox extract --extractor=screenshot 'https://example.com'
+    
+    # Re-run all extractors
+    archivebox extract 'https://example.com'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common Patterns
+
+### Import Browser Bookmarks
+
+```bash
+# Export bookmarks from your browser to bookmarks.html
+# Then import to ArchiveBox:
+archivebox add < ~/Downloads/bookmarks.html
+```
+
+### Import from RSS Feed
+
+```bash
+# One-time import
+archivebox add --parser=generic_rss < feed.xml
+
+# Or schedule automatic imports
+archivebox schedule --every=day 'https://example.com/feed.rss'
+```
+
+### Archive with Recursion
+
+```bash
+# Archive a page and all linked pages
+archivebox add --depth=1 'https://example.com'
+
+# Add timestamp to URL for multiple snapshots
+archivebox add 'https://example.com#2024-01-15'
+```
+
+### Batch Operations
+
+```bash
+# Add multiple URLs from a text file
+cat urls.txt | archivebox add
+
+# Export filtered subset
+archivebox list --filter-type=domain --filter-pattern='example.com' --json > example_snapshots.json
+```
+
+## Configuration via CLI
+
+You can configure ArchiveBox using three methods:
+
+<Tabs>
+  <Tab title="CLI Command">
+    ```bash
+    archivebox config --set TIMEOUT=120
+    archivebox config --set CHECK_SSL_VALIDITY=False
+    ```
+  </Tab>
+  
+  <Tab title="Config File">
+    ```bash
+    echo "TIMEOUT=120" >> ArchiveBox.conf
+    echo "CHECK_SSL_VALIDITY=False" >> ArchiveBox.conf
+    ```
+  </Tab>
+  
+  <Tab title="Environment Variable">
+    ```bash
+    env TIMEOUT=120 archivebox add 'https://example.com'
+    ```
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+### Permission Issues
+
+<Warning>
+  ArchiveBox refuses to run as root for security reasons.
+</Warning>
+
+If you see permission errors:
+
+```bash
+# Set correct ownership (Docker)
+docker compose run archivebox init
+
+# Or set PUID/PGID in docker-compose.yml
+PUID=1000
+PGID=1000
+```
+
+### Verbose Output
+
+```bash
+# Enable debug logging
+archivebox --debug add 'https://example.com'
+
+# Check specific extractor output
+archivebox extract --extractor=screenshot --debug 'https://example.com'
+```
+
+### Database Issues
+
+```bash
+# Check migration status
+archivebox manage showmigrations
+
+# Run migrations
+archivebox init
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Web UI Usage" icon="browser" href="/usage/web-ui">
+    Learn about the web interface
+  </Card>
+  <Card title="Python API" icon="python" href="/usage/python-api">
+    Use ArchiveBox as a Python library
+  </Card>
+  <Card title="Configuration" icon="gear" href="/essentials/configuration">
+    Configure archiving behavior
+  </Card>
+  <Card title="Browser Extension" icon="puzzle-piece" href="/usage/browser-extension">
+    Real-time archiving from your browser
+  </Card>
+</CardGroup>

@@ -1,0 +1,458 @@
+---
+title: Storage Configuration
+description: Configure ArchiveBox storage and cloud backends
+---
+
+# Storage Configuration
+
+ArchiveBox stores all data in a single directory on disk. This guide covers the data directory structure, storage requirements, and how to configure external storage backends like S3, NFS, and Google Drive.
+
+## Data Directory Structure
+
+All of ArchiveBox's state (SQLite database, content, config, logs, etc.) is stored in a single folder per collection:
+
+```bash
+data/
+    index.sqlite3           # Main SQLite database
+    ArchiveBox.conf         # Configuration file
+    archive/                # Archived content
+        1617687755/         # Snapshot directory (timestamp)
+            index.html      # Snapshot index page
+            index.json      # Snapshot metadata
+            screenshot.png  # Screenshot
+            output.pdf      # PDF snapshot
+            singlefile.html # SingleFile archive
+            media/          # Downloaded media files
+            warc/           # WARC archives
+            git/            # Git repository clones
+        ...
+    logs/                   # Log files
+    sonic/                  # Sonic search index (if enabled)
+    personas/               # Browser personas for authentication
+```
+
+### Key Components
+
+<ParamField path="index.sqlite3" type="database">
+  Main SQLite database containing all metadata, snapshots, tags, and configuration.
+</ParamField>
+
+<ParamField path="ArchiveBox.conf" type="config file">
+  Main configuration file in INI format.
+</ParamField>
+
+<ParamField path="archive/" type="directory">
+  Contains all archived content, organized by timestamp. Each snapshot has its own subdirectory.
+</ParamField>
+
+<ParamField path="personas/" type="directory">
+  Browser profiles and cookies for authenticated archiving.
+</ParamField>
+
+## Storage Requirements
+
+### Disk Space
+
+ArchiveBox can be disk-space intensive:
+
+- **Minimal** (HTML only): ~500KB - 2MB per snapshot
+- **Standard** (HTML, screenshot, PDF): ~2MB - 10MB per snapshot
+- **With media** (including videos): ~50MB - 2GB+ per snapshot
+
+<Warning>
+  Plan for at least 1-2GB per 100 snapshots for standard archiving, and significantly more if archiving media with yt-dlp.
+</Warning>
+
+### Performance Considerations
+
+- **SSD recommended**: Faster archiving and better database performance
+- **Filesystem**: ext4 or btrfs on Linux, APFS on macOS
+- **Special filesystems**: NFS/SMB/FUSE require special configuration (see below)
+
+## Creating Data Directories
+
+You can create data directories anywhere and have multiple collections:
+
+```bash
+# Create a new collection
+mkdir -p ~/archivebox/data
+cd ~/archivebox/data
+archivebox init
+
+# Create multiple collections
+mkdir -p ~/archives/personal
+mkdir -p ~/archives/work
+cd ~/archives/personal && archivebox init
+cd ~/archives/work && archivebox init
+```
+
+## External Storage Backends
+
+ArchiveBox supports various external storage backends for the `./data/archive/` folder.
+
+### Cloud Storage (S3, B2, Google Drive)
+
+Use RClone to mount cloud storage:
+
+#### 1. Install RClone Docker Plugin
+
+```bash
+# Install the RClone Docker volume plugin
+docker plugin install rclone/docker-volume-rclone:amd64 \
+  --grant-all-permissions --alias rclone
+```
+
+#### 2. Configure RClone
+
+Edit the RClone configuration:
+
+```bash
+sudo nano /var/lib/docker-plugins/rclone/config/rclone.conf
+```
+
+Add your cloud storage configuration:
+
+```ini
+# Google Drive example
+[mygdrive]
+type = drive
+scope = drive
+drive_id = 1234567...
+root_folder_id = 0Abcd...
+token = {"access_token":...}
+
+# Amazon S3 example
+[mys3]
+type = s3
+provider = AWS
+access_key_id = AKIAIOSFODNN7EXAMPLE
+secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+region = us-east-1
+
+# Backblaze B2 example
+[myb2]
+type = b2
+account = your-account-id
+key = your-application-key
+```
+
+#### 3. Update docker-compose.yml
+
+Add volume configuration:
+
+```yaml
+services:
+    archivebox:
+        volumes:
+            - ./data:/data
+            - archive:/data/archive  # Use named volume for archive
+
+volumes:
+    archive:
+        driver: rclone
+        driver_opts:
+            remote: 'mygdrive:archivebox'  # Or 'mys3:bucket/path' or 'myb2:bucket'
+            allow_other: 'true'
+            vfs_cache_mode: full
+            poll_interval: 0
+```
+
+### Network Storage (NFS, SMB/CIFS)
+
+#### NFS Mount
+
+1. Install NFS client:
+
+```bash
+# Ubuntu/Debian
+sudo apt install nfs-common
+
+# macOS (built-in)
+```
+
+2. Mount NFS share:
+
+```bash
+# Create mount point
+mkdir -p ~/archivebox/data
+
+# Mount NFS share
+sudo mount -t nfs nfs-server:/export/path ~/archivebox/data
+
+# Or add to /etc/fstab for persistent mount
+nfs-server:/export/path  /home/user/archivebox/data  nfs  defaults  0  0
+```
+
+3. Configure permissions:
+
+```bash
+# Set PUID/PGID in docker-compose.yml to match your user
+environment:
+    - PUID=1000  # Your user ID
+    - PGID=1000  # Your group ID
+```
+
+4. NFS server configuration:
+
+Disable `root_squash` on your NFS server:
+
+```bash
+# /etc/exports on NFS server
+/export/path  client-ip(rw,sync,no_root_squash,no_subtree_check)
+```
+
+#### SMB/CIFS Mount
+
+1. Install CIFS utilities:
+
+```bash
+sudo apt install cifs-utils
+```
+
+2. Create credentials file:
+
+```bash
+sudo nano /etc/samba-credentials
+```
+
+```
+username=your_username
+password=your_password
+```
+
+```bash
+sudo chmod 600 /etc/samba-credentials
+```
+
+3. Mount SMB share:
+
+```bash
+mkdir -p ~/archivebox/data
+sudo mount -t cifs //server/share ~/archivebox/data \
+  -o credentials=/etc/samba-credentials,uid=1000,gid=1000
+```
+
+### Docker Volume Mounts
+
+When using external storage with Docker:
+
+```yaml
+services:
+    archivebox:
+        volumes:
+            # Mount external directory
+            - /mnt/external/archivebox:/data
+        environment:
+            # Set permissions if needed
+            - PUID=1000
+            - PGID=1000
+```
+
+## Permissions Configuration
+
+### File Permissions
+
+Set output file permissions:
+
+```bash
+archivebox config --set OUTPUT_PERMISSIONS=755
+```
+
+Or in `ArchiveBox.conf`:
+
+```ini
+[GENERAL_CONFIG]
+OUTPUT_PERMISSIONS = 755
+```
+
+### Docker User/Group IDs
+
+When using Docker with mounted volumes:
+
+```yaml
+environment:
+    - PUID=1000  # Match your host user UID
+    - PGID=1000  # Match your host user GID
+```
+
+Find your UID/GID:
+
+```bash
+id -u  # Your UID
+id -g  # Your GID
+```
+
+<Warning>
+  UIDs/GIDs below 500 may clash with system users. Use 1000+ for regular users.
+</Warning>
+
+## Filesystem Compatibility
+
+### Filename Restrictions
+
+Configure filename restrictions for different filesystems:
+
+```bash
+# Windows-compatible filenames (safest for SMB/CIFS)
+archivebox config --set RESTRICT_FILE_NAMES=windows
+
+# Unix filenames (default)
+archivebox config --set RESTRICT_FILE_NAMES=unix
+```
+
+### Special Filesystem Requirements
+
+When using NFS, SMB, or FUSE:
+
+1. **Disable root_squash** on NFS servers
+2. **Set PUID/PGID** in Docker environment
+3. **Use appropriate mount options** (`uid`, `gid`, `file_mode`, `dir_mode`)
+4. **Test write permissions** before archiving
+
+See the [NFS/SMB Issues](https://github.com/ArchiveBox/ArchiveBox/issues/1304) discussion for troubleshooting.
+
+## Backup Strategies
+
+### Full Backup
+
+Backup the entire data directory:
+
+```bash
+# Using rsync
+rsync -av ~/archivebox/data/ /backup/location/
+
+# Using tar
+tar -czf archivebox-backup.tar.gz ~/archivebox/data/
+```
+
+### Database-Only Backup
+
+Backup just the SQLite database:
+
+```bash
+cp ~/archivebox/data/index.sqlite3 ~/backups/index.sqlite3.backup
+```
+
+Or use SQLite's backup command:
+
+```bash
+sqlite3 ~/archivebox/data/index.sqlite3 ".backup ~/backups/index.sqlite3.backup"
+```
+
+### Selective Backup
+
+Backup specific snapshots or date ranges:
+
+```bash
+# Backup snapshots from last 30 days
+find ~/archivebox/data/archive -mtime -30 -type d -depth 1 \
+  | xargs -I {} cp -r {} /backup/location/
+```
+
+### Automated Backups
+
+Schedule regular backups with cron:
+
+```bash
+crontab -e
+```
+
+Add daily backup at 2 AM:
+
+```cron
+0 2 * * * rsync -av ~/archivebox/data/ /backup/location/
+```
+
+## Storage Migration
+
+Move your ArchiveBox collection to new storage:
+
+### 1. Stop ArchiveBox
+
+```bash
+# If running server
+archivebox server --stop
+
+# Or stop Docker container
+docker compose down
+```
+
+### 2. Copy Data
+
+```bash
+# Using rsync (preserves permissions)
+rsync -av ~/archivebox/data/ /new/storage/location/
+
+# Or using cp
+cp -r ~/archivebox/data/ /new/storage/location/
+```
+
+### 3. Update Configuration
+
+Update paths in Docker Compose or scripts:
+
+```yaml
+volumes:
+    - /new/storage/location:/data  # Updated path
+```
+
+### 4. Verify and Restart
+
+```bash
+# Verify data
+cd /new/storage/location
+archivebox status
+
+# Restart ArchiveBox
+archivebox server
+# Or
+docker compose up -d
+```
+
+## Storage Monitoring
+
+### Check Disk Usage
+
+```bash
+# Total data directory size
+du -sh ~/archivebox/data
+
+# Archive folder size
+du -sh ~/archivebox/data/archive
+
+# Database size
+du -h ~/archivebox/data/index.sqlite3
+
+# Largest snapshots
+du -sh ~/archivebox/data/archive/* | sort -h | tail -20
+```
+
+### Cleanup Old Snapshots
+
+Remove snapshots you no longer need:
+
+```bash
+# Remove specific snapshot
+archivebox remove 'https://example.com'
+
+# Remove by filter
+archivebox remove --filter-type=search 'searchterm'
+```
+
+## Learn More
+
+- [Setting Up Storage Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage) - Complete storage setup guide
+- [Usage (Disk Layout)](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout) - Detailed disk layout documentation
+- [Usage (Large Archives)](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives) - Tips for managing large archives
+- [Security Overview (Output Folder)](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder) - Security considerations
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Overview" icon="gear" href="/config/overview">
+    Learn about ArchiveBox configuration methods
+  </Card>
+  <Card title="Dependencies" icon="puzzle-piece" href="/config/dependencies">
+    Configure extractors and dependencies
+  </Card>
+</CardGroup>

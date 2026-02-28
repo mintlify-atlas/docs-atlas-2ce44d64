@@ -1,0 +1,339 @@
+---
+title: Data Model & Database Schema
+description: Understanding ArchiveBox's database structure and data models
+---
+
+ArchiveBox uses Django ORM with SQLite to manage its data. Understanding the data model helps with advanced queries, migrations, and integrations.
+
+## Database Overview
+
+ArchiveBox stores all metadata in a SQLite database (`index.sqlite3`) while actual archive files live in the filesystem.
+
+**Why SQLite?**
+- Simple, serverless, zero-configuration
+- Single file for easy backup and portability
+- Sufficient performance for most use cases
+- Supports full-text search
+- Works identically across all platforms
+
+## Core Models
+
+### Snapshot
+
+The main model representing a single archived URL.
+
+**Key Fields**:
+```python
+class Snapshot(models.Model):
+    id = models.UUIDField(primary_key=True)  # Unique identifier
+    url = models.URLField()                  # Original URL
+    timestamp = models.DateTimeField()       # When archived
+    title = models.CharField()               # Page title
+    
+    # Relationships
+    crawl = models.ForeignKey(Crawl)         # Parent crawl
+    tags = models.ManyToManyField(Tag)       # Associated tags
+    
+    # Status tracking
+    status = models.CharField()              # queued/started/succeeded/failed
+    retry_at = models.DateTimeField()        # When to retry if failed
+    
+    # Metadata
+    added = models.DateTimeField()           # When added to archive
+    updated = models.DateTimeField()         # Last update time
+```
+
+**Usage Examples**:
+```bash
+# List all snapshots
+archivebox list
+
+# Query via SQL
+sqlite3 index.sqlite3 "SELECT url, title FROM core_snapshot LIMIT 10;"
+
+# Query via Python
+archivebox shell
+>>> from core.models import Snapshot
+>>> Snapshot.objects.filter(title__icontains='python').count()
+```
+
+### ArchiveResult
+
+Represents the output from a single extraction method.
+
+**Key Fields**:
+```python
+class ArchiveResult(models.Model):
+    id = models.UUIDField(primary_key=True)
+    snapshot = models.ForeignKey(Snapshot)   # Parent snapshot
+    
+    # What was extracted
+    extractor = models.CharField()           # e.g., 'screenshot', 'pdf'
+    cmd = models.JSONField()                 # Command executed
+    
+    # Result status
+    status = models.CharField()              # succeeded/failed/skipped
+    output = models.CharField()              # Output file path
+    start_ts = models.DateTimeField()        # Start time
+    end_ts = models.DateTimeField()          # End time
+    
+    # Output metadata  
+    output_size = models.BigIntegerField()   # File size in bytes
+```
+
+**Common Queries**:
+```sql
+-- Find failed extractions
+SELECT extractor, COUNT(*) 
+FROM core_archiveresult 
+WHERE status = 'failed' 
+GROUP BY extractor;
+
+-- Find large outputs
+SELECT snapshot_id, extractor, output_size 
+FROM core_archiveresult 
+WHERE output_size > 100000000  -- 100MB
+ORDER BY output_size DESC;
+```
+
+### Crawl
+
+Groups snapshots from a single `add` command.
+
+**Key Fields**:
+```python
+class Crawl(models.Model):
+    id = models.UUIDField(primary_key=True)
+    
+    # Crawl parameters
+    depth = models.IntegerField()            # Crawl depth (0 = single URL)
+    parser = models.CharField()              # Parser used
+    
+    # Status
+    status = models.CharField()              # queued/started/succeeded/failed
+    retry_at = models.DateTimeField()
+    
+    # Timestamps
+    created = models.DateTimeField()
+    modified = models.DateTimeField()
+```
+
+**Schema Evolution (0.9.x)**:
+- Seed model was **removed**
+- Crawls now store URLs directly
+- Simplified relationship with Snapshots
+
+### Tag
+
+Organizational labels for snapshots.
+
+**Key Fields**:
+```python
+class Tag(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(unique=True)     # Tag name
+    slug = models.SlugField(unique=True)     # URL-safe version
+```
+
+**Many-to-Many Relationship**:
+- Snapshots can have multiple tags
+- Tags can be on multiple snapshots
+- Junction table: `core_snapshot_tags`
+
+## Schema Version History
+
+ArchiveBox's schema has evolved across versions:
+
+### 0.4.x (Legacy)
+- First Django-based version
+- Tags stored as comma-separated strings
+- No ArchiveResult model - results stored in JSON
+- AutoField primary keys
+
+### 0.7.x
+- Introduced Tag model with M2M relationships
+- Added ArchiveResult model for better result tracking
+- Still using AutoField PKs
+- Added Snapshot status tracking
+
+### 0.8.x (Development)
+- Introduced Crawl and Seed models
+- Switched to UUID primary keys
+- Added status fields (queued/started/succeeded/failed)
+- Added retry_at for failed snapshots
+- Better depth tracking for recursive crawls
+
+### 0.9.x (Current)
+- Removed Seed model (simplified)
+- Removed seed_id FK from Crawl
+- Crawls store URLs directly
+- More efficient schema
+
+## Database Migrations
+
+ArchiveBox uses Django migrations to evolve the schema.
+
+### Viewing Migration History
+
+```bash
+# List applied migrations
+sqlite3 index.sqlite3 "SELECT app, name FROM django_migrations WHERE app='core' ORDER BY id;"
+
+# Check migration status
+archivebox manage showmigrations
+```
+
+### Migration Strategy
+
+- **Fresh installs**: Use squashed migrations for speed
+- **Upgrades**: Apply individual migrations in order
+- **Version jumps**: Migrations handle multi-version upgrades automatically
+
+See [Upgrading](/advanced/upgrading) for more details on running migrations.
+
+## Direct Database Access
+
+### SQL Shell
+
+```bash
+# Open SQLite shell
+sqlite3 ./index.sqlite3
+
+# Useful queries
+sqlite> .tables                    # List all tables
+sqlite> .schema core_snapshot      # View table schema
+sqlite> PRAGMA table_info(core_snapshot);  # Column details
+```
+
+### Python Shell
+
+```bash
+archivebox shell
+
+# In the shell:
+>>> from core.models import Snapshot, Tag, ArchiveResult
+>>> 
+>>> # Count snapshots
+>>> Snapshot.objects.count()
+>>> 
+>>> # Find by tag
+>>> Snapshot.objects.filter(tags__name='important')
+>>> 
+>>> # Complex queries
+>>> from django.db.models import Count
+>>> Tag.objects.annotate(num_snapshots=Count('snapshot')).order_by('-num_snapshots')
+```
+
+### Common SQL Queries
+
+```sql
+-- Total snapshots
+SELECT COUNT(*) FROM core_snapshot;
+
+-- Snapshots by status
+SELECT status, COUNT(*) 
+FROM core_snapshot 
+GROUP BY status;
+
+-- Most common domains
+SELECT 
+    SUBSTR(url, INSTR(url, '//') + 2, 
+           INSTR(SUBSTR(url, INSTR(url, '//') + 2), '/') - 1) as domain,
+    COUNT(*) as count
+FROM core_snapshot
+GROUP BY domain
+ORDER BY count DESC
+LIMIT 10;
+
+-- Snapshots with failed results
+SELECT DISTINCT s.url, s.title
+FROM core_snapshot s
+JOIN core_archiveresult ar ON ar.snapshot_id = s.id
+WHERE ar.status = 'failed';
+
+-- Storage usage by extractor
+SELECT 
+    extractor,
+    COUNT(*) as count,
+    SUM(output_size) / 1024 / 1024 as total_mb
+FROM core_archiveresult
+WHERE status = 'succeeded'
+GROUP BY extractor
+ORDER BY total_mb DESC;
+```
+
+## Data Integrity
+
+### Constraints
+
+The schema enforces several integrity constraints:
+
+- **Unique URLs per timestamp**: Prevents duplicate snapshots
+- **Foreign key constraints**: Ensures referential integrity
+- **NOT NULL constraints**: Required fields must have values
+
+### Indexes
+
+Optimized indexes for common queries:
+
+- URL lookups
+- Timestamp ranges
+- Status filtering
+- Tag searches
+
+## Performance Considerations
+
+### Scaling
+
+SQLite performs well up to:
+- Millions of snapshots
+- Tens of millions of ArchiveResults
+- Hundreds of GB of data
+
+For larger archives:
+- Consider PostgreSQL (experimental support)
+- Partition by date ranges
+- Archive old snapshots to separate databases
+
+### Optimization Tips
+
+```bash
+# Vacuum database (reclaim space)
+sqlite3 index.sqlite3 "VACUUM;"
+
+# Analyze for query optimization
+sqlite3 index.sqlite3 "ANALYZE;"
+
+# Check database integrity
+sqlite3 index.sqlite3 "PRAGMA integrity_check;"
+```
+
+## Backup Considerations
+
+The SQLite database is just one file, making backups simple:
+
+```bash
+# Copy database
+cp index.sqlite3 index.sqlite3.backup
+
+# Or backup entire data directory
+tar -czf archivebox-backup.tar.gz ~/archivebox/data/
+```
+
+See [Backups](/advanced/backups) for complete backup strategies.
+
+## External Integrations
+
+The SQLite database can be accessed by external tools:
+
+- **BI Tools**: Tableau, Metabase, etc. can connect directly
+- **Scripts**: Any language with SQLite support
+- **Exports**: Export to CSV, JSON, etc.
+
+```bash
+# Export to CSV
+sqlite3 index.sqlite3 -header -csv "SELECT * FROM core_snapshot;" > snapshots.csv
+
+# Export to JSON
+archivebox list --json > snapshots.json
+```

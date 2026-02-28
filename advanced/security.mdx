@@ -1,0 +1,353 @@
+---
+title: Security Considerations
+description: Security best practices and considerations for running ArchiveBox
+---
+
+While ArchiveBox is designed to be safe, archiving web content inherently involves some security considerations, especially when archiving logged-in or private content.
+
+## Overview
+
+ArchiveBox is safe for archiving public web content. However, there are important security considerations when:
+
+- Archiving content that requires authentication
+- Archiving private or sensitive content
+- Running ArchiveBox on a shared server
+- Exposing the Web UI to the internet
+
+## Logged-in Archiving Security
+
+### How It Works
+
+ArchiveBox can archive content behind authentication using browser cookies or session data:
+
+```bash
+# Create a persona and import browser cookies
+archivebox persona create --import=chrome personal
+```
+
+This imports your browser's cookies and session data to allow ArchiveBox to access logged-in content.
+
+### Security Caveats
+
+<Warning>
+**Critical Security Considerations for Logged-in Archiving:**
+
+1. **Credentials Stored on Disk**: Your session cookies and credentials are stored in plain text in the `personas/` directory
+2. **Session Hijacking Risk**: Anyone with access to your ArchiveBox data directory can use your sessions
+3. **Credential Persistence**: Sessions may remain valid even after you log out of the original service
+4. **Shared Server Risk**: Never use logged-in archiving on shared/untrusted systems
+</Warning>
+
+### Best Practices for Logged-in Archiving
+
+**DO**:
+- Use personas only on your personal, trusted machine
+- Use dedicated "archiving" accounts when possible
+- Regularly rotate credentials
+- Delete personas when no longer needed: `archivebox persona delete <name>`
+- Encrypt your ArchiveBox data directory at rest
+- Use file permissions to restrict access (chmod 700)
+
+**DON'T**:
+- Use your primary accounts for archiving
+- Archive on shared or untrusted systems
+- Commit personas to version control
+- Share your ArchiveBox data directory
+- Archive extremely sensitive content (banking, medical, etc.)
+
+### Credential Storage
+
+Persona data is stored in:
+```
+DATA_DIR/personas/{persona_name}/
+├── cookies.txt              # Netscape cookies format
+└── chrome_user_data/        # Chrome profile data
+    ├── Default/
+    │   ├── Cookies          # Session cookies
+    │   └── ...
+    └── ...
+```
+
+These files contain **plaintext credentials and session tokens**.
+
+## Private Content Archiving
+
+### What Counts as Private?
+
+- Content behind paywalls
+- Private social media posts
+- Company intranets
+- Personal documents
+- Medical/financial records
+
+### Risks
+
+1. **Data Breach**: If your archive is compromised, private content is exposed
+2. **Legal Issues**: Archiving some private content may violate terms of service
+3. **Compliance**: May conflict with GDPR, HIPAA, or other regulations
+
+### Mitigations
+
+```bash
+# Disable Archive.org submission for private content
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+
+# Disable public index
+archivebox config --set PUBLIC_INDEX=False
+archivebox config --set PUBLIC_SNAPSHOTS=False
+
+# Enable authentication requirement
+archivebox config --set PUBLIC_ADD_VIEW=False
+```
+
+**Additional protections**:
+- Encrypt the entire data directory
+- Use filesystem permissions (chmod 700)
+- Store on encrypted volumes (LUKS, FileVault, BitLocker)
+- Keep backups encrypted
+
+## Web UI Security
+
+### Authentication
+
+By default, the Web UI requires authentication:
+
+```bash
+# Create admin user
+archivebox manage createsuperuser
+
+# Start server (localhost only)
+archivebox server 127.0.0.1:8000
+```
+
+### Public Access Settings
+
+```bash
+# Allow unauthenticated users to view index
+archivebox config --set PUBLIC_INDEX=True
+
+# Allow unauthenticated users to view snapshots
+archivebox config --set PUBLIC_SNAPSHOTS=True
+
+# Allow unauthenticated users to add URLs
+archivebox config --set PUBLIC_ADD_VIEW=True
+```
+
+<Warning>
+Only enable public access if you understand the implications:
+- Anyone can view your archive content
+- Anyone can add URLs (potential abuse)
+- Your server could be used to archive malicious content
+</Warning>
+
+### Network Exposure
+
+**Development/Local Use**:
+```bash
+# Bind to localhost only (default)
+archivebox server 127.0.0.1:8000
+```
+
+**LAN Access**:
+```bash
+# Bind to all interfaces
+archivebox server 0.0.0.0:8000
+```
+
+**Internet Exposure**:
+<Warning>
+Never expose ArchiveBox directly to the internet. Always use:
+- Reverse proxy (nginx, Caddy, Traefik)
+- HTTPS/TLS encryption
+- Rate limiting
+- Strong authentication
+- Web application firewall (optional)
+</Warning>
+
+Example nginx config:
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name archive.example.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    
+    # Rate limiting
+    limit_req_zone $binary_remote_addr zone=archivebox:10m rate=10r/s;
+    limit_req zone=archivebox burst=20 nodelay;
+    
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+## Archived Content Security
+
+### Malicious Content
+
+Archiving malicious websites creates risks:
+
+- **JavaScript**: Archived pages can contain malicious JavaScript
+- **Phishing**: Archived phishing sites can still be dangerous
+- **Malware**: Downloaded files may contain malware
+
+### Mitigations
+
+1. **Content Security Policy**: Modern browsers sandbox archived content
+2. **Disable JavaScript**: View archived HTML with JS disabled
+3. **Sandboxing**: View archived content in isolated environments
+4. **Antivirus**: Scan downloaded media files
+
+```bash
+# Disable media download for untrusted sources
+archivebox config --set SAVE_MEDIA=False
+
+# Disable git clone for untrusted sources  
+archivebox config --set SAVE_GIT=False
+```
+
+## Data Privacy
+
+### Archive.org Submissions
+
+By default, ArchiveBox submits URLs to Archive.org:
+
+```bash
+# Disable for private content
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+```
+
+<Info>
+**Stealth Mode**: Set `SAVE_ARCHIVE_DOT_ORG=False` to prevent any external submissions and keep archiving completely local.
+</Info>
+
+### Metadata Leakage
+
+Archived content may contain sensitive metadata:
+
+- **HTTP Headers**: May reveal auth tokens, session IDs
+- **Cookies**: Stored in persona data
+- **Referer Headers**: May reveal browsing patterns
+- **User Agent**: Identifies your browser/system
+
+## Docker Security
+
+### Container Isolation
+
+Docker provides some isolation:
+
+```yaml
+# docker-compose.yml
+services:
+  archivebox:
+    image: archivebox/archivebox:latest
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./data:/data
+```
+
+### User Permissions
+
+<Warning>
+ArchiveBox refuses to run as root for security reasons. This is enforced in the code.
+</Warning>
+
+In Docker:
+```yaml
+services:
+  archivebox:
+    user: "1000:1000"  # Run as non-root user
+```
+
+## File Permissions
+
+Protect your data directory:
+
+```bash
+# Restrict to owner only
+chmod 700 ~/archivebox/data
+
+# Or restrict specific sensitive directories
+chmod 700 ~/archivebox/data/personas
+chmod 600 ~/archivebox/data/index.sqlite3
+chmod 600 ~/archivebox/data/ArchiveBox.conf
+```
+
+## Backup Security
+
+Backups may contain sensitive data:
+
+```bash
+# Encrypt backups
+tar -czf - ~/archivebox/data | gpg -c > archivebox-backup.tar.gz.gpg
+
+# Decrypt
+gpg -d archivebox-backup.tar.gz.gpg | tar -xzf -
+```
+
+See [Backups](/advanced/backups) for more backup strategies.
+
+## Compliance Considerations
+
+### GDPR
+
+If archiving personal data:
+- Document data retention policies
+- Implement data deletion procedures
+- Restrict access appropriately
+- Encrypt at rest and in transit
+
+### Legal Requirements
+
+- Check terms of service before archiving
+- Respect robots.txt (ArchiveBox obeys it by default)
+- Don't archive copyrighted content you don't have rights to
+- Follow applicable laws in your jurisdiction
+
+## Security Checklist
+
+**For Personal Use**:
+- [ ] Run on trusted machine only
+- [ ] Use strong admin password
+- [ ] Keep ArchiveBox updated
+- [ ] Set `PUBLIC_INDEX=False` for private archives
+- [ ] Use `SAVE_ARCHIVE_DOT_ORG=False` for private content
+- [ ] Encrypt data directory at rest
+- [ ] Restrict file permissions (chmod 700)
+- [ ] Use dedicated accounts for logged-in archiving
+- [ ] Regularly review and delete old personas
+
+**For Server Deployment**:
+- [ ] All of the above, plus:
+- [ ] Use HTTPS/TLS for web access
+- [ ] Deploy behind reverse proxy
+- [ ] Implement rate limiting
+- [ ] Enable authentication
+- [ ] Regular security updates
+- [ ] Monitor access logs
+- [ ] Implement backup encryption
+- [ ] Use firewall rules
+- [ ] Consider WAF for internet exposure
+- [ ] Document security procedures
+
+## Reporting Security Issues
+
+If you discover a security vulnerability:
+
+1. **Do not** open a public GitHub issue
+2. Email security details to the maintainers
+3. See the [Contributing Guide](/community/contributing) for contact information
+
+## Learn More
+
+- [Configuration](/config/overview) - Security-related settings
+- [Troubleshooting](/advanced/troubleshooting) - Debug security issues
+- [Professional Support](/community/professional-support) - Get security consultation

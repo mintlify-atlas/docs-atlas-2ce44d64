@@ -1,0 +1,426 @@
+---
+title: Django Models Reference
+description: Core Django models for Snapshot, Crawl, Tag, and ArchiveResult
+---
+
+# Django Models Reference
+
+ArchiveBox uses Django ORM models to store and manage archive data. All models are located in `archivebox/core/models.py`.
+
+## Snapshot Model
+
+Represents a single archived URL. Each snapshot belongs to a Crawl and can have multiple ArchiveResults from different extractors.
+
+### Fields
+
+```python
+from archivebox.core.models import Snapshot
+
+class Snapshot:
+    # Primary key and timestamps
+    id: uuid.UUID                    # UUIDv7 primary key
+    created_at: datetime             # When snapshot was created
+    modified_at: datetime            # Last modification time
+    bookmarked_at: datetime          # When URL was bookmarked
+    
+    # URL and metadata
+    url: str                         # The archived URL
+    timestamp: str                   # Unix timestamp (unique, used for filesystem paths)
+    title: str | None                # Page title (extracted)
+    
+    # Relationships
+    crawl: Crawl                     # Parent crawl that created this snapshot
+    parent_snapshot: Snapshot | None # Parent snapshot (for recursive crawling)
+    tags: ManyToManyField[Tag]       # Tags associated with this snapshot
+    
+    # Archive state
+    depth: int                       # Crawl depth (0 for root, 1+ for discovered)
+    status: str                      # 'queued', 'started', 'succeeded', 'failed'
+    retry_at: datetime               # When to retry if failed
+    current_step: int                # Current hook step (0-9)
+    downloaded_at: datetime | None   # When archiving completed
+    
+    # Storage
+    fs_version: str                  # Filesystem layout version (e.g., '0.9.0')
+    config: dict                     # Per-snapshot configuration overrides
+    notes: str                       # User notes
+```
+
+### Methods
+
+#### Query Methods
+
+```python
+# Get all snapshots
+Snapshots.objects.all()
+
+# Filter by URL pattern
+Snapshot.objects.filter(url__contains='example.com')
+
+# Filter by domain
+Snapshot.objects.filter(domain='example.com')
+
+# Filter by tag
+Snapshot.objects.filter(tags__name='important')
+
+# Filter by status
+Snapshot.objects.filter(status='succeeded')
+
+# Filter by date range
+from django.utils import timezone
+last_week = timezone.now() - timezone.timedelta(days=7)
+Snapshot.objects.filter(created_at__gte=last_week)
+
+# Complex queries
+Snapshot.objects.filter(
+    url__contains='github.com',
+    status='succeeded'
+).exclude(
+    tags__name='archived'
+).order_by('-created_at')
+```
+
+#### Export Methods
+
+Export methods are available on QuerySets:
+
+```python
+snapshots = Snapshot.objects.all()
+
+# Export to JSON
+json_str = snapshots.to_json(with_headers=True)
+
+# Export to CSV
+csv_str = snapshots.to_csv(
+    cols=['timestamp', 'url', 'title', 'tags_str'],
+    header=True,
+    separator=','
+)
+
+# Export to HTML
+html_str = snapshots.to_html(with_headers=True)
+
+# Export single snapshot to dict
+snapshot = Snapshot.objects.first()
+data = snapshot.to_dict(extended=True)
+```
+
+#### Archive Methods
+
+```python
+snapshot = Snapshot.objects.first()
+
+# Start archiving (runs all extractors)
+snapshot.archive()
+
+# Archive with specific methods only
+snapshot.archive(methods=['wget', 'screenshot'])
+
+# Force re-archive (overwrite existing)
+snapshot.archive(overwrite=True)
+```
+
+#### Filesystem Methods
+
+```python
+# Get output directory path
+output_dir = snapshot.output_dir  # Path object
+print(output_dir)  # users/{user}/snapshots/YYYYMMDD/{domain}/{uuid}/
+
+# Check if migration needed
+needs_migration = snapshot.fs_migration_needed  # bool
+
+# Get storage path for specific version
+old_path = snapshot.get_storage_path_for_version('0.8.0')
+new_path = snapshot.get_storage_path_for_version('0.9.0')
+```
+
+### Properties
+
+```python
+snapshot = Snapshot.objects.first()
+
+# User who created the snapshot (via crawl)
+user = snapshot.created_by
+
+# Display-friendly tags string
+tags_str = snapshot.tags_str()  # 'important,archived,research'
+
+# HTML icons for successful extractors
+icons_html = snapshot.icons()  # HTML with success/failure icons
+
+# Related processes
+processes = snapshot.process_set  # All Process objects
+binaries = snapshot.binary_set    # All Binary objects used
+```
+
+## Crawl Model
+
+Represents a crawl session that groups related snapshots. Created by `archivebox add` commands.
+
+See `archivebox/crawls/models.py` for full implementation.
+
+### Fields
+
+```python
+from archivebox.crawls.models import Crawl
+
+class Crawl:
+    id: uuid.UUID              # UUIDv7 primary key
+    created_at: datetime       # When crawl was created
+    modified_at: datetime      # Last modification
+    created_by: User           # User who started the crawl
+    
+    label: str                 # Human-readable label
+    urls: str                  # Newline-separated list of URLs
+    max_depth: int             # Maximum crawl depth (0 = no recursion)
+    status: str                # 'queued', 'started', 'succeeded', 'failed'
+    retry_at: datetime         # When to retry
+    
+    config: dict               # Per-crawl configuration
+    notes: str                 # User notes
+```
+
+### Methods
+
+```python
+# Create a new crawl
+crawl = Crawl.objects.create(
+    label='Daily news crawl',
+    urls='https://news.ycombinator.com\nhttps://reddit.com/r/programming',
+    max_depth=1,
+    created_by=user
+)
+
+# Get all snapshots from this crawl
+snapshots = crawl.snapshot_set.all()
+
+# Get crawl stats
+print(f"Total URLs: {crawl.snapshot_set.count()}")
+print(f"Succeeded: {crawl.snapshot_set.filter(status='succeeded').count()}")
+```
+
+## Tag Model
+
+Represents a tag that can be applied to snapshots.
+
+### Fields
+
+```python
+from archivebox.core.models import Tag
+
+class Tag:
+    id: int                    # Auto-increment primary key (for compatibility)
+    created_at: datetime       # When tag was created
+    modified_at: datetime      # Last modification
+    created_by: User           # User who created the tag
+    
+    name: str                  # Tag name (unique)
+    slug: str                  # URL-safe slug (auto-generated)
+```
+
+### Methods
+
+```python
+# Create or get a tag
+tag, created = Tag.objects.get_or_create(name='important')
+
+# Get all snapshots with this tag
+snapshots = tag.snapshot_set.all()
+
+# Add tag to snapshot
+snapshot.tags.add(tag)
+
+# Remove tag from snapshot
+snapshot.tags.remove(tag)
+
+# Export tag to JSON
+tag_json = tag.to_json()
+# {'type': 'Tag', 'id': '1', 'name': 'important', 'slug': 'important'}
+```
+
+## ArchiveResult Model
+
+Represents the result of running a single extractor (plugin) on a snapshot.
+
+### Fields
+
+```python
+from archivebox.core.models import ArchiveResult
+
+class ArchiveResult:
+    id: uuid.UUID              # UUIDv7 primary key
+    created_at: datetime       # When result was created
+    modified_at: datetime      # Last modification
+    
+    snapshot: Snapshot         # Parent snapshot
+    plugin: str                # Plugin name (e.g., 'wget', 'screenshot')
+    hook_name: str             # Hook filename
+    
+    status: str                # 'queued', 'started', 'succeeded', 'failed', 'skipped'
+    retry_at: datetime         # When to retry if failed
+    
+    output_str: str            # Text output from extractor
+    output_files: list[str]    # List of created files (relative paths)
+    
+    cmd: list[str]             # Command that was run
+    pwd: str                   # Working directory
+    
+    start_ts: datetime         # When extraction started
+    end_ts: datetime           # When extraction finished
+    
+    process: Process           # Associated process (optional)
+```
+
+### Methods
+
+```python
+# Get all results for a snapshot
+results = snapshot.archiveresult_set.all()
+
+# Filter by plugin
+wget_results = ArchiveResult.objects.filter(
+    snapshot=snapshot,
+    plugin='wget'
+)
+
+# Filter by status
+succeeded = ArchiveResult.objects.filter(status='succeeded')
+failed = ArchiveResult.objects.filter(status='failed')
+
+# Get output files
+result = ArchiveResult.objects.first()
+if result.output_files:
+    for file in result.output_files:
+        print(f"Created: {file}")
+
+# Export to JSON
+result_json = result.to_json()
+```
+
+## Binary Model
+
+Represents an installed binary/dependency used by extractors.
+
+See `archivebox/machine/models.py` for full implementation.
+
+### Fields
+
+```python
+from archivebox.machine.models import Binary
+
+class Binary:
+    id: uuid.UUID              # UUIDv7 primary key
+    created_at: datetime       # When binary was registered
+    modified_at: datetime      # Last modification
+    
+    name: str                  # Binary name (e.g., 'wget', 'chrome')
+    binpath: str               # Full path to binary
+    version: str               # Version string
+    sha256: str                # SHA256 hash of binary
+    
+    is_valid: bool             # Whether binary passes validation
+    overrides: dict            # Configuration overrides for this binary
+```
+
+### Methods
+
+```python
+# Get all installed binaries
+binaries = Binary.objects.all()
+
+# Find a specific binary
+wget = Binary.objects.filter(name='wget').first()
+print(f"Path: {wget.binpath}")
+print(f"Version: {wget.version}")
+
+# Check if binary is valid
+if wget.is_valid:
+    print("wget is installed and working")
+```
+
+## Examples
+
+### Complete Workflow Example
+
+```python
+from django.contrib.auth import get_user_model
+from archivebox.core.models import Snapshot, Tag
+from archivebox.crawls.models import Crawl
+
+User = get_user_model()
+user = User.objects.get(username='admin')
+
+# Create a crawl
+crawl = Crawl.objects.create(
+    label='Important Research',
+    urls='https://example.com',
+    max_depth=0,
+    created_by=user
+)
+
+# Create a snapshot
+snapshot = Snapshot.objects.create(
+    url='https://example.com',
+    crawl=crawl,
+    depth=0
+)
+
+# Add tags
+research_tag, _ = Tag.objects.get_or_create(name='research')
+important_tag, _ = Tag.objects.get_or_create(name='important')
+snapshot.tags.add(research_tag, important_tag)
+
+# Start archiving
+snapshot.archive()
+
+# Check results
+for result in snapshot.archiveresult_set.all():
+    print(f"{result.plugin}: {result.status}")
+    if result.status == 'succeeded':
+        print(f"  Files: {result.output_files}")
+```
+
+### Bulk Operations
+
+```python
+from django.db import transaction
+from archivebox.core.models import Snapshot, Tag
+
+# Bulk tag addition
+tag = Tag.objects.get(name='archived')
+snapshots = Snapshot.objects.filter(url__contains='example.com')
+
+with transaction.atomic():
+    for snapshot in snapshots:
+        snapshot.tags.add(tag)
+
+# Bulk status update
+failed_snapshots = Snapshot.objects.filter(status='failed')
+failed_snapshots.update(status='queued', retry_at=timezone.now())
+
+# Bulk export
+json_data = Snapshot.objects.filter(
+    tags__name='important'
+).to_json(with_headers=True)
+
+with open('important_snapshots.json', 'w') as f:
+    f.write(json_data)
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Python API Overview" icon="python" href="/api/python/overview">
+    Basic usage and common patterns
+  </Card>
+  <Card title="Extractors API" icon="puzzle-piece" href="/api/python/extractors">
+    Using and creating extractors
+  </Card>
+  <Card title="Config API" icon="gear" href="/api/python/config">
+    Configuration management
+  </Card>
+  <Card title="Source Code" icon="code" href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py">
+    View models.py on GitHub
+  </Card>
+</CardGroup>

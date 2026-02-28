@@ -1,0 +1,558 @@
+---
+title: archivebox schedule
+description: Schedule automatic archiving using cron for periodic URL imports
+---
+
+The `schedule` command sets up recurring archiving tasks using cron, allowing automatic periodic imports from RSS feeds, bookmark files, or any URL source.
+
+## Basic Usage
+
+```bash
+# Schedule daily import from RSS feed
+archivebox schedule --every=day --parser=rss 'https://example.com/feed.xml'
+
+# Show scheduled jobs
+archivebox schedule --show
+
+# Clear all scheduled jobs
+archivebox schedule --clear
+```
+
+```bash docker
+docker compose run archivebox schedule --every=day 'https://example.com/feed'
+```
+
+## How It Works
+
+1. **Creates cron job** - Adds entry to user's crontab
+2. **Runs command** - Executes `archivebox add` or `archivebox update` on schedule
+3. **Logs output** - Writes to `logs/schedule.log`
+4. **Repeats** - Continues on configured schedule
+
+## Options
+
+### `--every`
+
+Schedule frequency. Can be a predefined interval or cron format.
+
+```bash
+archivebox schedule --every=day 'https://example.com/feed'
+```
+
+**Predefined intervals:**
+- `minute` - Every minute (use sparingly)
+- `hour` - Every hour
+- `day` - Daily at midnight
+- `month` - Monthly on 1st at midnight
+- `year` - Yearly on Jan 1st at midnight
+
+**Cron format:**
+```bash
+# Every 5 minutes
+archivebox schedule --every="*/5 * * * *" 'https://example.com/feed'
+
+# Every weekday at 9 AM
+archivebox schedule --every="0 9 * * 1-5" 'https://example.com/feed'
+
+# Twice daily (9 AM and 9 PM)
+archivebox schedule --every="0 9,21 * * *" 'https://example.com/feed'
+```
+
+**Cron format:** `minute hour day month weekday`
+- `*` - Any value
+- `*/N` - Every N units
+- `N` - Specific value
+- `N-M` - Range
+- `N,M` - Multiple values
+
+### `--add`
+
+Add a new scheduled job (implicit when `--every` is provided).
+
+```bash
+archivebox schedule --add --every=hour 'https://example.com/feed'
+```
+
+### `--show`
+
+Display all scheduled ArchiveBox cron jobs.
+
+```bash
+archivebox schedule --show
+```
+
+Output:
+```
+cd "/data" && archivebox add --depth=1 "https://example.com/feed" >> "/data/logs/schedule.log" 2>&1
+cd "/data" && archivebox update >> "/data/logs/schedule.log" 2>&1
+```
+
+### `--clear`
+
+Remove all ArchiveBox cron jobs.
+
+```bash
+archivebox schedule --clear
+```
+
+<Warning>
+  This removes ALL ArchiveBox scheduled jobs. Cannot be undone.
+</Warning>
+
+### `--foreground`, `-f`
+
+Run scheduler in foreground instead of using cron.
+
+```bash
+archivebox schedule --foreground
+```
+
+Useful for:
+- Testing scheduled jobs
+- Running in containers without cron
+- Debugging schedule issues
+
+Runs continuously, executing jobs at scheduled times.
+
+### `--run-all`
+
+Execute all scheduled jobs immediately, ignoring their schedules.
+
+```bash
+archivebox schedule --run-all
+```
+
+Useful for:
+- Testing all scheduled jobs
+- Manual trigger before schedule
+- Validating job configuration
+
+### `--quiet`, `-q`
+
+Suppress warnings about high-frequency scheduling.
+
+```bash
+archivebox schedule --quiet --every=hour 'https://example.com/feed'
+```
+
+### `--depth`
+
+Recursive crawl depth for scheduled imports.
+
+```bash
+archivebox schedule --every=day --depth=1 'https://example.com'
+```
+
+See [`archivebox add --depth`](/cli/add#depth-d) for details.
+
+### `--tag`, `-t`
+
+Tag snapshots created by scheduled imports.
+
+```bash
+archivebox schedule --every=day --tag='news,daily' 'https://news.example.com/feed'
+```
+
+### `--overwrite`
+
+Re-archive URLs even if already archived.
+
+```bash
+archivebox schedule --every=day --overwrite 'https://example.com/feed'
+```
+
+### `--update`
+
+Retry failed/skipped URLs when re-adding.
+
+```bash
+archivebox schedule --every=day --update 'https://example.com/feed'
+```
+
+### Import Path
+
+Path or URL to import from (required for `add`, optional for `update`).
+
+```bash
+# Schedule RSS feed import
+archivebox schedule --every=hour 'https://example.com/feed.xml'
+
+# Schedule file import
+archivebox schedule --every=day '/path/to/bookmarks.html'
+
+# Schedule update only (no import path)
+archivebox schedule --every=day
+```
+
+Without import path, schedules `archivebox update` instead of `add`.
+
+## Examples
+
+### Daily RSS Feed Import
+
+Import news feed every day at midnight:
+
+```bash
+archivebox schedule --every=day --parser=rss --tag='news' \
+  'https://news.example.com/feed.xml'
+```
+
+### Hourly Feed Check
+
+Check feed every hour for new items:
+
+```bash
+archivebox schedule --every=hour --parser=rss \
+  'https://blog.example.com/feed'
+```
+
+### Weekly Bookmark Import
+
+Import bookmarks every Sunday at 2 AM:
+
+```bash
+archivebox schedule --every="0 2 * * 0" \
+  '/path/to/bookmarks.html'
+```
+
+### Multiple Feeds
+
+Schedule multiple feeds at different intervals:
+
+```bash
+# High-priority news: every hour
+archivebox schedule --every=hour --tag='breaking-news' \
+  'https://news.example.com/breaking.rss'
+
+# Daily blog: once per day
+archivebox schedule --every=day --tag='blog' \
+  'https://blog.example.com/feed'
+
+# Weekly newsletter: Mondays at 9 AM
+archivebox schedule --every="0 9 * * 1" --tag='newsletter' \
+  'https://example.com/newsletter.rss'
+```
+
+### Archive Update Schedule
+
+Re-archive all snapshots weekly:
+
+```bash
+archivebox schedule --every="0 3 * * 0"  # Sundays at 3 AM, no import path
+```
+
+### Complex Cron Schedule
+
+Business hours only (weekdays 9 AM - 5 PM, every hour):
+
+```bash
+archivebox schedule --every="0 9-17 * * 1-5" \
+  'https://company.example.com/feed'
+```
+
+### Foreground Scheduler
+
+Run scheduler as long-running process:
+
+```bash
+# Terminal 1: Run scheduler
+archivebox schedule --foreground
+
+# Terminal 2: Add jobs
+archivebox schedule --every=hour 'https://example.com/feed'
+```
+
+Or as background service:
+
+```bash
+nohup archivebox schedule --foreground > /dev/null 2>&1 &
+```
+
+### Test Scheduled Jobs
+
+Run all jobs immediately to test:
+
+```bash
+archivebox schedule --run-all
+```
+
+## View Scheduled Jobs
+
+### Using ArchiveBox
+
+```bash
+archivebox schedule --show
+```
+
+Output:
+```
+cd "/data" && archivebox add --parser=rss "https://example.com/feed" >> "/data/logs/schedule.log" 2>&1
+```
+
+### Using System Crontab
+
+```bash
+crontab -l | grep ArchiveBox
+```
+
+Output:
+```
+0 * * * * cd "/data" && archivebox add --parser=rss "https://example.com/feed" >> "/data/logs/schedule.log" 2>&1  # ArchiveBox
+```
+
+### Edit Crontab Manually
+
+```bash
+crontab -e
+```
+
+Modify ArchiveBox entries directly.
+
+## Logs
+
+Scheduled jobs log to `logs/schedule.log`:
+
+```bash
+tail -f logs/schedule.log
+```
+
+Output:
+```
+[2024-01-15 10:00:01] [+] Adding URLs from https://example.com/feed
+[2024-01-15 10:00:05] [√] Added 3 new snapshots
+[2024-01-15 11:00:01] [+] Adding URLs from https://example.com/feed
+[2024-01-15 11:00:03] [*] No new URLs found
+```
+
+## Docker Considerations
+
+### Using Cron in Docker
+
+Docker containers need cron daemon running:
+
+```dockerfile Dockerfile
+FROM archivebox/archivebox:latest
+RUN apt-get update && apt-get install -y cron
+CMD ["cron", "-f"]
+```
+
+### Using Foreground Scheduler
+
+Alternatively, use foreground scheduler:
+
+```yaml docker-compose.yml
+services:
+  archivebox:
+    command: schedule --foreground
+```
+
+Then add jobs via:
+```bash
+docker compose exec archivebox archivebox schedule --every=hour 'https://example.com/feed'
+```
+
+### Using Host Cron
+
+Schedule from host system:
+
+```bash
+# On host machine
+crontab -e
+```
+
+Add:
+```
+0 * * * * cd /path/to/data && docker compose run -T archivebox add --parser=rss 'https://example.com/feed' >> logs/schedule.log 2>&1
+```
+
+## Remove Scheduled Jobs
+
+### Remove All ArchiveBox Jobs
+
+```bash
+archivebox schedule --clear
+```
+
+### Remove Specific Job
+
+Edit crontab manually:
+
+```bash
+crontab -e
+```
+
+Delete the specific line.
+
+### Disable Temporarily
+
+Comment out in crontab:
+
+```bash
+crontab -e
+```
+
+Add `#` before the line:
+```
+# 0 * * * * cd "/data" && archivebox add ... # ArchiveBox
+```
+
+## Troubleshooting
+
+### Jobs not running
+
+**Check cron is running:**
+```bash
+systemctl status cron  # or 'crond' on some systems
+```
+
+**Verify jobs exist:**
+```bash
+archivebox schedule --show
+crontab -l
+```
+
+**Check logs:**
+```bash
+tail -f logs/schedule.log
+```
+
+### Permission errors
+
+**Solution:** Ensure correct user:
+```bash
+whoami  # Should match archive owner
+ls -la  # Check file permissions
+```
+
+### Jobs running but failing
+
+**Check log file:**
+```bash
+tail -50 logs/schedule.log
+```
+
+**Test command manually:**
+```bash
+cd /data && archivebox add --parser=rss 'https://example.com/feed'
+```
+
+### High frequency warning
+
+```
+[!] With the current cron config, ArchiveBox is estimated to run >60 times per year.
+    Make sure you have enough storage space available.
+```
+
+**This is just a warning.** Suppress with `--quiet`:
+```bash
+archivebox schedule --quiet --every=hour 'https://example.com/feed'
+```
+
+### Time zone issues
+
+**Solution:** Set timezone in cron:
+```bash
+crontab -e
+```
+
+Add at top:
+```
+TZ=America/New_York
+```
+
+## Best Practices
+
+### 1. Use Tags
+
+Tag scheduled imports for organization:
+
+```bash
+archivebox schedule --every=day --tag='scheduled,news' 'https://news.example.com/feed'
+```
+
+### 2. Monitor Logs
+
+Regularly check schedule logs:
+
+```bash
+tail -f logs/schedule.log
+```
+
+### 3. Appropriate Frequency
+
+Don't over-schedule:
+
+- **High-traffic feeds:** Hourly or every 6 hours
+- **Daily blogs:** Once per day
+- **Weekly newsletters:** Once per week
+- **Archive updates:** Weekly or monthly
+
+### 4. Disk Space
+
+Monitor disk usage with frequent scheduling:
+
+```bash
+df -h
+archivebox status
+```
+
+### 5. Test First
+
+Test before scheduling:
+
+```bash
+# Test the command
+archivebox add --parser=rss 'https://example.com/feed'
+
+# If successful, schedule it
+archivebox schedule --every=day --parser=rss 'https://example.com/feed'
+```
+
+### 6. Backup Crontab
+
+Save cron configuration:
+
+```bash
+crontab -l > ~/crontab-backup.txt
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="add" icon="plus" href="/cli/add">
+    Command that scheduled jobs execute
+  </Card>
+  <Card title="update" icon="rotate" href="/cli/update">
+    Schedule periodic updates
+  </Card>
+  <Card title="server" icon="server" href="/cli/server">
+    Alternative: queue jobs via web UI
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Monitor scheduled imports
+  </Card>
+</CardGroup>
+
+## Cron Format Reference
+
+```
+* * * * *
+│ │ │ │ │
+│ │ │ │ └─ Day of week (0-7, Sun=0 or 7)
+│ │ │ └─── Month (1-12)
+│ │ └───── Day of month (1-31)
+│ └─────── Hour (0-23)
+└───────── Minute (0-59)
+```
+
+**Common patterns:**
+- `* * * * *` - Every minute
+- `0 * * * *` - Every hour
+- `0 0 * * *` - Daily at midnight
+- `0 0 * * 0` - Weekly on Sunday
+- `0 0 1 * *` - Monthly on 1st
+- `*/5 * * * *` - Every 5 minutes
+- `0 9-17 * * *` - Every hour from 9 AM to 5 PM
+- `0 9 * * 1-5` - Weekdays at 9 AM
+
+Test cron expressions at [crontab.guru](https://crontab.guru/).

@@ -1,0 +1,209 @@
+---
+title: CLI Overview
+description: Overview of ArchiveBox command-line interface and common usage patterns
+---
+
+ArchiveBox provides a powerful command-line interface for managing your web archive. All commands follow a consistent structure and can be run either directly on your system or through Docker.
+
+## Command Structure
+
+All ArchiveBox commands follow this pattern:
+
+```bash
+archivebox [command] [options] [arguments]
+```
+
+### Docker Usage
+
+When running in Docker, prefix commands with your Docker execution method:
+
+```bash
+# Docker Compose (interactive)
+docker compose run archivebox [command] [options]
+
+# Docker Compose (non-interactive, for scripts)
+docker compose run -T archivebox [command] [options]
+
+# Docker (standalone)
+docker run -v $PWD:/data -it archivebox/archivebox [command] [options]
+```
+
+## Command Categories
+
+ArchiveBox commands are organized into several categories:
+
+### Setup Commands
+
+- [`init`](/cli/init) - Initialize a new ArchiveBox collection
+- `install` - Install dependencies and browser binaries
+
+### Core Archive Commands
+
+- [`add`](/cli/add) - Add new URLs to archive
+- [`remove`](/cli/remove) - Remove URLs from the archive
+- [`update`](/cli/update) - Update and migrate existing snapshots
+- `search` - Search and list snapshots (alias: `list`)
+- [`status`](/cli/status) - Show archive statistics and health
+
+### Server & Automation
+
+- [`server`](/cli/server) - Run the web UI server
+- [`schedule`](/cli/schedule) - Schedule periodic archiving with cron
+
+### Advanced Commands
+
+- [`config`](/cli/config) - Get and set configuration values
+- [`shell`](/cli/shell) - Enter interactive Python/Django shell
+- [`manage`](/cli/manage) - Run Django management commands
+
+### Model Commands (CRUD operations)
+
+- `crawl` - Manage crawl records
+- `snapshot` - Manage snapshot records
+- `archiveresult` - Manage archive results
+- `tag` - Manage tags
+- `binary` - Manage binary dependencies
+
+## Common Options
+
+Most commands support these common options:
+
+- `--help`, `-h` - Show help for the command
+- `--version`, `-v` - Show ArchiveBox version
+- `--debug` - Enable debug mode with verbose output
+
+## Working Directory
+
+<Warning>
+  **Important:** Most ArchiveBox commands must be run from inside a data directory (initialized with `archivebox init`). The current working directory becomes your archive's data folder.
+</Warning>
+
+```bash
+# Initialize in desired location
+mkdir ~/my-archive
+cd ~/my-archive
+archivebox init
+
+# All subsequent commands run from this directory
+archivebox add 'https://example.com'
+archivebox server
+```
+
+## Exit Codes
+
+ArchiveBox commands use standard UNIX exit codes:
+
+- `0` - Success
+- `1` - General error or no results found
+- `2` - Invalid usage or configuration error
+
+## Command Aliases
+
+Some commands have been renamed for clarity. Old names still work but show a deprecation hint:
+
+- `import` → `add`
+- `archive` → `add`  
+- `setup` → `install`
+- `orchestrator` → `run`
+- `extract` → `archiveresult`
+
+## Output Formats
+
+Many commands support multiple output formats:
+
+- **Plain text** - Default human-readable output
+- **JSON** - Machine-readable with `--json`
+- **CSV** - Spreadsheet-compatible with `--csv=fields`
+- **HTML** - Static HTML with `--html`
+
+## Common Patterns
+
+### Piping URLs
+
+```bash
+# From a file
+archivebox add < urls.txt
+
+# From stdin
+echo "https://example.com" | archivebox add
+
+# From a command
+curl https://example.com/feed.rss | archivebox add
+```
+
+### Filtering Snapshots
+
+Many commands accept filter patterns:
+
+```bash
+# By exact URL
+archivebox remove --filter-type=exact 'https://example.com'
+
+# By domain
+archivebox update --filter-type=domain 'example.com'
+
+# By substring
+archivebox search --filter-type=substring 'blog'
+
+# By regex
+archivebox search --filter-type=regex '^https://.*\.pdf$'
+
+# By tag
+archivebox search --filter-type=tag 'important'
+
+# By timestamp
+archivebox update --after=1609459200 --before=1640995200
+```
+
+### Background Processing
+
+```bash
+# Queue URLs for background processing
+archivebox add --bg 'https://example.com'
+
+# Run the server to process queue
+archivebox server
+```
+
+## Getting Help
+
+Every command has detailed help available:
+
+```bash
+# General help
+archivebox help
+
+# Command-specific help  
+archivebox [command] --help
+
+# Examples
+archivebox add --help
+archivebox config --help
+```
+
+## Environment Variables
+
+Commands respect these environment variables:
+
+- `DATA_DIR` - Override the data directory location
+- `DEBUG` - Enable debug mode (`True`/`False`)
+- `IN_DOCKER` - Indicates running in Docker container
+
+See the [Configuration](/config/overview) section for all available environment variables.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Initialize Archive" icon="rocket" href="/cli/init">
+    Set up your first ArchiveBox collection
+  </Card>
+  <Card title="Add URLs" icon="plus" href="/cli/add">
+    Start archiving web pages
+  </Card>
+  <Card title="Run Server" icon="server" href="/cli/server">
+    Launch the web interface
+  </Card>
+  <Card title="Configuration" icon="gear" href="/cli/config">
+    Customize your archive settings
+  </Card>
+</CardGroup>

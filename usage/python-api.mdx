@@ -1,0 +1,667 @@
+---
+title: 'Python API'
+description: 'Use ArchiveBox as a Python library'
+icon: 'python'
+---
+
+## Overview
+
+ArchiveBox can be used as a Python library, allowing you to programmatically manage your archive, integrate archiving into your applications, or build custom workflows.
+
+<Info>
+  The Python API provides direct access to ArchiveBox's Django models and core functions.
+</Info>
+
+## Installation
+
+Install ArchiveBox as a Python package:
+
+```bash
+pip install archivebox
+```
+
+Or for development:
+
+```bash
+git clone https://github.com/ArchiveBox/ArchiveBox
+cd ArchiveBox
+pip install -e .
+```
+
+## Quick Start
+
+### Interactive Shell
+
+The easiest way to explore the Python API:
+
+```bash
+cd /path/to/your/archivebox/data
+archivebox shell
+```
+
+This opens an IPython shell with Django models pre-loaded:
+
+```python
+# Shell is ready with imports:
+# - All Django models
+# - ArchiveBox functions
+# - Common utilities
+
+# Example: List all snapshots
+for snapshot in Snapshot.objects.all()[:5]:
+    print(f"{snapshot.timestamp} - {snapshot.url}")
+```
+
+### Basic Python Script
+
+```python
+#!/usr/bin/env python3
+import os
+import django
+
+# Set up Django environment
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+django.setup()
+
+# Now import ArchiveBox modules
+from archivebox.core.models import Snapshot
+from archivebox.cli.archivebox_add import add
+
+# Add a URL
+result = add('https://example.com')
+print(f"Added {result.count()} snapshots")
+
+# Query snapshots
+snapshots = Snapshot.objects.filter(url__contains='example')
+for snap in snapshots:
+    print(f"{snap.url} - {snap.title}")
+```
+
+## Core Functions
+
+### Adding URLs
+
+The `add()` function archives new URLs:
+
+```python
+from archivebox.cli.archivebox_add import add
+
+# Add single URL
+add('https://example.com')
+
+# Add with depth (recursive crawling)
+add('https://news.ycombinator.com', depth=1)
+
+# Add with tags
+add('https://example.com', tag='blog,important')
+
+# Add with persona for authenticated content
+add('https://example.com', persona='personal')
+
+# Add multiple URLs
+urls = [
+    'https://example.com',
+    'https://news.ycombinator.com',
+    'https://github.com/trending'
+]
+add(urls)
+
+# Add from string (supports any format)
+urls_text = """
+https://example.com
+https://news.ycombinator.com
+"""
+add(urls_text)
+```
+
+**Parameters:**
+
+- `urls` (str | list[str]) - URL(s) to archive
+- `depth` (int) - Crawl depth (0-4, default: 0)
+- `tag` (str) - Comma-separated tags
+- `parser` (str) - URL format parser (default: "auto")
+- `persona` (str) - Browser persona to use (default: "Default")
+- `overwrite` (bool) - Re-archive existing snapshots (default: False)
+- `update` (bool) - Update existing snapshots (default: True)
+- `index_only` (bool) - Only add to index, don't extract (default: False)
+
+**Returns:** `QuerySet[Snapshot]` - Snapshots that were created/updated
+
+### Querying Snapshots
+
+Use Django's ORM to query snapshots:
+
+```python
+from archivebox.core.models import Snapshot
+from django.utils import timezone
+from datetime import timedelta
+
+# Get all snapshots
+all_snapshots = Snapshot.objects.all()
+
+# Filter by URL
+example_snaps = Snapshot.objects.filter(url__contains='example.com')
+
+# Filter by title
+blog_posts = Snapshot.objects.filter(title__icontains='blog')
+
+# Filter by date
+recent = timezone.now() - timedelta(days=7)
+recent_snaps = Snapshot.objects.filter(added__gte=recent)
+
+# Get single snapshot
+try:
+    snap = Snapshot.objects.get(url='https://example.com')
+    print(snap.title)
+except Snapshot.DoesNotExist:
+    print("Not found")
+except Snapshot.MultipleObjectsReturned:
+    snaps = Snapshot.objects.filter(url='https://example.com')
+    print(f"Found {snaps.count()} snapshots")
+
+# Order results
+latest = Snapshot.objects.order_by('-added')[:10]
+oldest = Snapshot.objects.order_by('added')[:10]
+
+# Count snapshots
+total = Snapshot.objects.count()
+print(f"Total snapshots: {total}")
+```
+
+### Updating Snapshots
+
+Re-run extractors on existing snapshots:
+
+```python
+from archivebox.core.models import Snapshot
+
+# Get snapshot
+snap = Snapshot.objects.get(url='https://example.com')
+
+# Update (re-run all extractors)
+snap.update()
+
+# Update specific extractor
+snap.update(extractors=['screenshot'])
+
+# Update all snapshots matching criteria
+Snapshot.objects.filter(
+    url__contains='example.com'
+).update_all()  # Custom method to update multiple
+```
+
+### Removing Snapshots
+
+```python
+from archivebox.core.models import Snapshot
+
+# Remove single snapshot
+snap = Snapshot.objects.get(url='https://example.com')
+snap.delete()  # Deletes snapshot and all associated files
+
+# Remove multiple snapshots
+Snapshot.objects.filter(
+    url__contains='old-domain.com'
+).delete()
+
+# Remove with confirmation
+to_delete = Snapshot.objects.filter(added__lt=timezone.now() - timedelta(days=365))
+print(f"Will delete {to_delete.count()} snapshots")
+confirm = input("Proceed? (yes/no): ")
+if confirm == 'yes':
+    to_delete.delete()
+```
+
+## Working with Models
+
+### Snapshot Model
+
+The main model for archived pages:
+
+```python
+from archivebox.core.models import Snapshot
+
+snap = Snapshot.objects.first()
+
+# Core fields
+print(snap.url)          # URL that was archived
+print(snap.timestamp)    # Unique timestamp ID
+print(snap.title)        # Page title
+print(snap.added)        # When it was added
+print(snap.updated)      # Last update time
+
+# Tags
+print(snap.tags.all())   # QuerySet of Tag objects
+for tag in snap.tags.all():
+    print(tag.name)
+
+# Archive results (extractors)
+for result in snap.archiveresult_set.all():
+    print(f"{result.extractor}: {result.status}")
+    print(f"  Output: {result.output_path}")
+
+# Check if specific extraction succeeded
+if snap.archiveresult_set.filter(extractor='screenshot', status='succeeded').exists():
+    print("Screenshot available!")
+
+# Access archive directory
+print(snap.link_dir)     # Path to snapshot folder
+
+# Archive formats available
+if (snap.link_dir / 'screenshot.png').exists():
+    print("Screenshot exists")
+if (snap.link_dir / 'singlefile.html').exists():
+    print("SingleFile exists")
+```
+
+**Key Snapshot Fields:**
+
+- `url` (str) - The archived URL
+- `timestamp` (str) - Unique identifier (timestamp)
+- `title` (str) - Page title
+- `added` (datetime) - When added to archive
+- `updated` (datetime) - Last updated
+- `tags` (M2M) - Related Tag objects
+- `archiveresult_set` - Results from extractors
+- `link_dir` (Path) - Directory containing archived files
+
+### Tag Model
+
+```python
+from archivebox.core.models import Tag, Snapshot
+
+# Create tags
+tag, created = Tag.objects.get_or_create(name='important')
+if created:
+    print("Created new tag")
+
+# Add tag to snapshot
+snap = Snapshot.objects.first()
+snap.tags.add(tag)
+
+# Find snapshots by tag
+important_snaps = Snapshot.objects.filter(tags__name='important')
+
+# List all tags
+for tag in Tag.objects.all():
+    count = tag.snapshot_set.count()
+    print(f"{tag.name}: {count} snapshots")
+
+# Bulk tag operations
+for snap in Snapshot.objects.filter(url__contains='github.com'):
+    snap.tags.add(Tag.objects.get_or_create(name='code')[0])
+```
+
+### ArchiveResult Model
+
+Tracks individual extractor outputs:
+
+```python
+from archivebox.core.models import ArchiveResult, Snapshot
+
+snap = Snapshot.objects.first()
+
+# Get all extraction results
+for result in snap.archiveresult_set.all():
+    print(f"Extractor: {result.extractor}")
+    print(f"Status: {result.status}")
+    print(f"Output: {result.output_path}")
+    print(f"Command: {result.cmd}")
+    print(f"Duration: {result.end_ts - result.start_ts}s")
+    print()
+
+# Filter by status
+failed = snap.archiveresult_set.filter(status='failed')
+for result in failed:
+    print(f"Failed: {result.extractor}")
+    print(f"Error: {result.output}")
+
+# Check specific extractor
+try:
+    screenshot = snap.archiveresult_set.get(extractor='screenshot')
+    if screenshot.status == 'succeeded':
+        print(f"Screenshot saved to: {screenshot.output_path}")
+except ArchiveResult.DoesNotExist:
+    print("Screenshot not attempted")
+```
+
+### Crawl Model
+
+Manage archiving jobs:
+
+```python
+from archivebox.crawls.models import Crawl
+from django.utils import timezone
+
+# Create crawl
+crawl = Crawl.objects.create(
+    urls='https://example.com\nhttps://github.com',
+    max_depth=1,
+    tags_str='automated',
+    label=f'API Crawl {timezone.now()}'
+)
+
+print(f"Created crawl: {crawl.id}")
+
+# Check crawl status
+print(f"Status: {crawl.status}")
+print(f"Progress: {crawl.progress}%")
+
+# Get snapshots from crawl
+snapshots = crawl.snapshot_set.all()
+print(f"Created {snapshots.count()} snapshots")
+
+# List all crawls
+for crawl in Crawl.objects.all()[:10]:
+    print(f"{crawl.label}: {crawl.status}")
+```
+
+## Advanced Usage
+
+### Custom Extraction
+
+Run specific extractors programmatically:
+
+```python
+from archivebox.core.models import Snapshot
+from archivebox.plugins_extractor.screenshot.apps import SCREENSHOT_PLUGIN
+
+snap = Snapshot.objects.first()
+
+# Run screenshot extractor
+result = SCREENSHOT_PLUGIN.extract(snap)
+print(f"Screenshot status: {result.status}")
+```
+
+### Batch Processing
+
+```python
+from archivebox.core.models import Snapshot
+from archivebox.cli.archivebox_add import add
+import time
+
+# Process URLs from file
+with open('urls.txt', 'r') as f:
+    urls = [line.strip() for line in f if line.strip()]
+
+# Add in batches
+batch_size = 10
+for i in range(0, len(urls), batch_size):
+    batch = urls[i:i+batch_size]
+    print(f"Processing batch {i//batch_size + 1}")
+    add(batch)
+    time.sleep(5)  # Rate limiting
+```
+
+### Custom Filters
+
+```python
+from archivebox.core.models import Snapshot
+from django.db.models import Q, Count
+
+# Complex queries
+snaps = Snapshot.objects.filter(
+    Q(url__contains='github.com') | Q(url__contains='gitlab.com')
+).filter(
+    added__year=2024
+)
+
+# Annotate with counts
+tagged = Snapshot.objects.annotate(
+    tag_count=Count('tags')
+).filter(
+    tag_count__gte=3
+)
+
+for snap in tagged:
+    print(f"{snap.url}: {snap.tag_count} tags")
+
+# Aggregate statistics
+from django.db.models import Avg, Max, Min
+
+stats = Snapshot.objects.aggregate(
+    total=Count('id'),
+    oldest=Min('added'),
+    newest=Max('added')
+)
+print(stats)
+```
+
+### Monitoring and Logging
+
+```python
+import logging
+from archivebox.core.models import Snapshot, ArchiveResult
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Check archive health
+failed_results = ArchiveResult.objects.filter(status='failed')
+logger.info(f"Failed extractions: {failed_results.count()}")
+
+# Find incomplete snapshots
+incomplete = Snapshot.objects.filter(
+    archiveresult__status='failed'
+).distinct()
+
+for snap in incomplete[:10]:
+    logger.warning(f"Incomplete: {snap.url}")
+    failures = snap.archiveresult_set.filter(status='failed')
+    for result in failures:
+        logger.error(f"  {result.extractor}: {result.output}")
+```
+
+### Integration Example: Flask App
+
+```python
+from flask import Flask, request, jsonify
+import os
+import django
+
+# Setup Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+django.setup()
+
+from archivebox.cli.archivebox_add import add
+from archivebox.core.models import Snapshot
+
+app = Flask(__name__)
+
+@app.route('/archive', methods=['POST'])
+def archive_url():
+    data = request.json
+    url = data.get('url')
+    
+    if not url:
+        return jsonify({'error': 'URL required'}), 400
+    
+    try:
+        snapshots = add(url)
+        return jsonify({
+            'status': 'success',
+            'count': snapshots.count(),
+            'urls': [s.url for s in snapshots]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/snapshots', methods=['GET'])
+def list_snapshots():
+    limit = request.args.get('limit', 10, type=int)
+    snapshots = Snapshot.objects.all()[:limit]
+    
+    return jsonify({
+        'count': Snapshot.objects.count(),
+        'snapshots': [
+            {
+                'url': s.url,
+                'title': s.title,
+                'added': s.added.isoformat(),
+                'tags': [t.name for t in s.tags.all()]
+            }
+            for s in snapshots
+        ]
+    })
+
+if __name__ == '__main__':
+    app.run(port=5000)
+```
+
+## Configuration
+
+Access and modify ArchiveBox configuration:
+
+```python
+from archivebox.config import ARCHIVING_CONFIG, SERVER_CONFIG
+
+# Read configuration
+print(ARCHIVING_CONFIG.TIMEOUT)
+print(ARCHIVING_CONFIG.SAVE_SCREENSHOT)
+print(SERVER_CONFIG.LISTEN_HOST)
+
+# Modify for current session
+ARCHIVING_CONFIG.TIMEOUT = 120
+
+# Persist configuration
+import subprocess
+subprocess.run([
+    'archivebox', 'config', '--set', 'TIMEOUT=120'
+])
+```
+
+## Testing
+
+Write tests using ArchiveBox as a library:
+
+```python
+import pytest
+import os
+import django
+from django.test import TestCase
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+django.setup()
+
+from archivebox.cli.archivebox_add import add
+from archivebox.core.models import Snapshot
+
+class ArchiveTestCase(TestCase):
+    def test_add_url(self):
+        # Add URL
+        snapshots = add('https://example.com')
+        
+        # Verify
+        self.assertEqual(snapshots.count(), 1)
+        snap = snapshots.first()
+        self.assertEqual(snap.url, 'https://example.com')
+        self.assertTrue(snap.title)
+    
+    def test_tag_snapshot(self):
+        from archivebox.core.models import Tag
+        
+        # Add and tag
+        snap = add('https://example.com').first()
+        tag = Tag.objects.create(name='test')
+        snap.tags.add(tag)
+        
+        # Verify
+        self.assertEqual(snap.tags.count(), 1)
+        self.assertEqual(snap.tags.first().name, 'test')
+```
+
+## API Reference
+
+<CardGroup cols={2}>
+  <Card title="Full API Docs" icon="book" href="https://docs.archivebox.io">
+    Complete Python API reference
+  </Card>
+  <Card title="Django Models" icon="database" href="https://docs.archivebox.io/en/latest/modules.html#models">
+    Model field reference
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/ArchiveBox/ArchiveBox">
+    Browse source code
+  </Card>
+  <Card title="Examples" icon="code" href="https://github.com/ArchiveBox/ArchiveBox/tree/dev/examples">
+    Example scripts
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Daily Backup Script
+
+```python
+#!/usr/bin/env python3
+import os
+import django
+from datetime import datetime
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+django.setup()
+
+from archivebox.cli.archivebox_add import add
+
+# Archive important sites daily
+urls = [
+    'https://news.ycombinator.com',
+    'https://lobste.rs',
+    'https://github.com/trending'
+]
+
+date_tag = datetime.now().strftime('%Y-%m-%d')
+
+for url in urls:
+    print(f"Archiving {url}...")
+    add(f"{url}#{date_tag}", tag=f'daily-backup,{date_tag}')
+
+print("Daily backup complete!")
+```
+
+### Feed Monitor
+
+```python
+#!/usr/bin/env python3
+import feedparser
+import os
+import django
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+django.setup()
+
+from archivebox.cli.archivebox_add import add
+from archivebox.core.models import Snapshot
+
+# Parse RSS feed
+feed = feedparser.parse('https://example.com/feed.rss')
+
+# Archive new items
+for entry in feed.entries:
+    url = entry.link
+    
+    # Skip if already archived
+    if Snapshot.objects.filter(url=url).exists():
+        print(f"Skip: {url}")
+        continue
+    
+    print(f"Archive: {entry.title}")
+    add(url, tag='rss-feed,blog')
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Command-line operations
+  </Card>
+  <Card title="Web UI" icon="browser" href="/usage/web-ui">
+    Web interface guide
+  </Card>
+  <Card title="Configuration" icon="gear" href="/essentials/configuration">
+    Configure ArchiveBox
+  </Card>
+  <Card title="Extractors" icon="puzzle-piece" href="/advanced/extractors">
+    Custom extraction plugins
+  </Card>
+</CardGroup>

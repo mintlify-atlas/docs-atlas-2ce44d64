@@ -1,0 +1,243 @@
+---
+title: 'archivebox snapshot'
+description: 'Manage Snapshot records - individual URL archiving jobs'
+icon: 'camera'
+---
+
+## Overview
+
+The `archivebox snapshot` command manages Snapshot records in ArchiveBox. A Snapshot represents an individual URL to be archived, including all its metadata, extraction results, and status.
+
+## Model Purpose
+
+**Snapshot** - An individual URL archiving job. Each Snapshot:
+- Represents a single URL to archive
+- Tracks archiving status (queued, started, sealed)
+- Has associated ArchiveResults (one per plugin)
+- Can be tagged for organization
+- Belongs to a Crawl (optional)
+- Stores metadata like title, timestamp, favicons
+
+## Subcommands
+
+### create
+
+Create Snapshots from URLs or Crawl records.
+
+```bash
+archivebox snapshot create <urls...> [options]
+```
+
+**Options:**
+- `--tag`, `-t` - Comma-separated tags to add
+- `--status`, `-s` - Initial status (default: queued)
+- `--depth`, `-d` - Crawl depth (default: 0)
+
+**Examples:**
+
+```bash
+# Create snapshot from URL
+archivebox snapshot create https://example.com
+
+# Create with tags
+archivebox snapshot create https://example.com --tag=news
+
+# Create from Crawl JSONL
+archivebox crawl create https://example.com | archivebox snapshot create
+
+# Pipeline: crawl → snapshot → run
+archivebox crawl create https://example.com \
+  | archivebox snapshot create \
+  | archivebox run
+```
+
+### list
+
+List Snapshots with optional filters.
+
+```bash
+archivebox snapshot list [options]
+```
+
+**Options:**
+- `--status`, `-s` - Filter by status (queued, started, sealed)
+- `--url__icontains` - Filter by URL containing text
+- `--url__istartswith` - Filter by URL starting with text
+- `--tag`, `-t` - Filter by tag name
+- `--crawl-id` - Filter by crawl ID
+- `--limit`, `-n` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all snapshots
+archivebox snapshot list
+
+# List queued snapshots
+archivebox snapshot list --status=queued
+
+# List snapshots for specific domain
+archivebox snapshot list --url__icontains=example.com
+
+# List snapshots with specific tag
+archivebox snapshot list --tag=news
+
+# List first 10 snapshots
+archivebox snapshot list --limit=10
+```
+
+### update
+
+Update Snapshots from stdin JSONL.
+
+```bash
+archivebox snapshot list [filters] | archivebox snapshot update [options]
+```
+
+**Options:**
+- `--status`, `-s` - Set status
+- `--tag`, `-t` - Add tag
+
+**Examples:**
+
+```bash
+# Add tag to snapshots
+archivebox snapshot list --url__icontains=example.com \
+  | archivebox snapshot update --tag=important
+
+# Reset status to reprocess
+archivebox snapshot list --tag=old \
+  | archivebox snapshot update --status=queued
+```
+
+### delete
+
+Delete Snapshots from stdin JSONL.
+
+```bash
+archivebox snapshot list [filters] | archivebox snapshot delete [options]
+```
+
+**Options:**
+- `--yes`, `-y` - Confirm deletion (required)
+- `--dry-run` - Show what would be deleted without deleting
+
+**Examples:**
+
+```bash
+# Preview deletion
+archivebox snapshot list --url__icontains=spam.com \
+  | archivebox snapshot delete --dry-run
+
+# Delete spam snapshots
+archivebox snapshot list --url__icontains=spam.com \
+  | archivebox snapshot delete --yes
+```
+
+## Common Use Cases
+
+### Archive URLs Directly
+
+Create and process snapshots in one pipeline:
+
+```bash
+# Archive a URL
+archivebox snapshot create https://example.com \
+  | archivebox run
+
+# Archive multiple URLs
+archivebox snapshot create \
+  https://example.com \
+  https://foo.com \
+  | archivebox run
+```
+
+### Tag Organization
+
+Organize snapshots with tags:
+
+```bash
+# Create tagged snapshot
+archivebox snapshot create https://example.com --tag=research
+
+# Add tag to existing snapshots
+archivebox snapshot list --url__icontains=example.com \
+  | archivebox snapshot update --tag=verified
+
+# List by tag
+archivebox snapshot list --tag=research
+```
+
+### Retry Failed Snapshots
+
+Re-queue snapshots for reprocessing:
+
+```bash
+# Find and retry snapshots with failed extractions
+archivebox snapshot list --status=sealed \
+  | archivebox archiveresult create \
+  | archivebox archiveresult update --status=queued \
+  | archivebox run
+```
+
+### Domain Management
+
+Work with snapshots from specific domains:
+
+```bash
+# List all example.com snapshots
+archivebox snapshot list --url__istartswith=https://example.com
+
+# Export domain snapshots
+archivebox snapshot list --url__icontains=example.com > example_snapshots.jsonl
+
+# Delete domain snapshots
+archivebox snapshot list --url__icontains=spam.com \
+  | archivebox snapshot delete --yes
+```
+
+### Archive Processing
+
+Create specific extraction results:
+
+```bash
+# Queue screenshots for all snapshots
+archivebox snapshot list \
+  | archivebox archiveresult create --plugin=screenshot \
+  | archivebox run
+
+# Re-run PDF generation
+archivebox snapshot list --tag=important \
+  | archivebox archiveresult create --plugin=pdf \
+  | archivebox run
+```
+
+## Status Values
+
+- **queued** - Snapshot is waiting to be archived
+- **started** - Snapshot is currently being archived
+- **sealed** - Snapshot archiving has completed
+
+## JSONL Format
+
+Snapshots are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "type": "snapshot",
+  "id": "01JH...",
+  "url": "https://example.com",
+  "timestamp": "2024-02-28T10:00:00Z",
+  "tags": "news,tech",
+  "status": "queued",
+  "title": "Example Domain",
+  "crawl_id": "01JH..."
+}
+```
+
+## See Also
+
+- [archivebox crawl](/cli/crawl) - Create Crawls that generate Snapshots
+- [archivebox archiveresult](/cli/archiveresult) - Manage extraction results for Snapshots
+- [archivebox run](/usage/cli#run) - Process queued snapshots
+- [archivebox tag](/cli/tag) - Manage tags for organization

@@ -1,0 +1,379 @@
+---
+title: Archiving Process
+description: How ArchiveBox archives web pages
+---
+
+ArchiveBox uses a sophisticated multi-stage process to archive web content. Understanding how it works helps you configure it effectively and troubleshoot issues.
+
+## Overview
+
+When you add a URL to ArchiveBox:
+
+1. **URL is queued** - Added to the database as a Snapshot
+2. **Extractors run** - Each enabled extractor processes the page
+3. **Results saved** - Output files stored in the Snapshot directory
+4. **Index updated** - Database and search index updated
+
+## Extractors
+
+Extractors are plugins that save content in specific formats. Each extractor is independent and runs in parallel when possible.
+
+### Core Extractors
+
+#### Title Extractor
+
+- **What it does**: Extracts the page title from `<title>` tag
+- **Output**: `title.txt`
+- **Dependencies**: `curl` or `wget`
+- **Config**: `SAVE_TITLE`
+
+#### Favicon Extractor
+
+- **What it does**: Downloads the site's favicon
+- **Output**: `favicon.ico`
+- **Dependencies**: `curl` or `wget`
+- **Config**: `SAVE_FAVICON`
+
+#### Headers Extractor
+
+- **What it does**: Saves HTTP response headers
+- **Output**: `headers.json`
+- **Dependencies**: `curl`
+- **Config**: `SAVE_HEADERS`
+
+### HTML Extractors
+
+#### Wget Extractor
+
+- **What it does**: Mirrors the page with linked resources
+- **Output**: `example.com/page.html` + assets
+- **Dependencies**: `wget`
+- **Config**: `SAVE_WGET`, `WGET_*` options
+- **Features**:
+  - Recursive download (controlled by `--depth`)
+  - Preserves directory structure
+  - Downloads CSS, JS, images
+  - Creates browsable mirror
+
+#### SingleFile Extractor
+
+- **What it does**: Creates self-contained HTML with embedded resources
+- **Output**: `singlefile.html`
+- **Dependencies**: Chrome/Chromium, SingleFile extension
+- **Config**: `SAVE_SINGLEFILE`
+- **Features**:
+  - All resources embedded as data URIs
+  - Single file, no external dependencies
+  - High fidelity preservation
+  - Works offline
+
+#### DOM Extractor
+
+- **What it does**: Saves HTML after JavaScript execution
+- **Output**: `output.html`
+- **Dependencies**: Chrome/Chromium
+- **Config**: `SAVE_DOM`
+- **Features**:
+  - Captures dynamically loaded content
+  - Includes AJAX-loaded elements
+  - Shows page as actually rendered
+
+### Visual Extractors
+
+#### Screenshot Extractor
+
+- **What it does**: Captures page screenshot
+- **Output**: `screenshot.png`
+- **Dependencies**: Chrome/Chromium
+- **Config**: `SAVE_SCREENSHOT`, `RESOLUTION`
+- **Default resolution**: 1440x900
+
+#### PDF Extractor
+
+- **What it does**: Generates PDF version
+- **Output**: `output.pdf`
+- **Dependencies**: Chrome/Chromium
+- **Config**: `SAVE_PDF`
+- **Features**:
+  - Printable format
+  - Good for archival
+  - Long-term readability
+
+### Archive Formats
+
+#### WARC Extractor
+
+- **What it does**: Creates Web ARChive file
+- **Output**: `warc/TIMESTAMP.warc.gz`
+- **Dependencies**: `wget` or `curl`
+- **Config**: `SAVE_WARC`
+- **Features**:
+  - Industry standard format
+  - Used by Archive.org, libraries
+  - Contains raw HTTP requests/responses
+  - Suitable for long-term preservation
+
+### Content Extraction
+
+#### Readability Extractor
+
+- **What it does**: Extracts main article text
+- **Output**: `article.html`, `article.json`
+- **Dependencies**: Node.js, readability-extractor
+- **Config**: `SAVE_READABILITY`
+- **Features**:
+  - Removes ads and navigation
+  - Clean, readable format
+  - Preserves article structure
+
+#### Mercury Extractor
+
+- **What it does**: Alternative article extraction
+- **Output**: `mercury.json`
+- **Dependencies**: Node.js, mercury-parser
+- **Config**: `SAVE_MERCURY`
+- **Features**:
+  - Different extraction algorithm
+  - Good for some sites where Readability fails
+
+### Media Extraction
+
+#### Media Extractor (yt-dlp)
+
+- **What it does**: Downloads videos, audio, subtitles
+- **Output**: `media/` directory
+- **Dependencies**: `yt-dlp`
+- **Config**: `SAVE_MEDIA`, `YTDLP_*` options
+- **Supported sites**: 1000+ including:
+  - YouTube, Vimeo, SoundCloud
+  - Twitter, Instagram, TikTok
+  - Reddit, Imgur
+  - And many more
+- **Output includes**:
+  - Video/audio files (MP4, MP3, etc.)
+  - Subtitles (SRT, VTT)
+  - Thumbnails
+  - Metadata JSON
+
+### Source Code
+
+#### Git Extractor
+
+- **What it does**: Clones git repositories
+- **Output**: `git/` directory
+- **Dependencies**: `git`
+- **Config**: `SAVE_GIT`
+- **Detects**: GitHub, GitLab, Bitbucket URLs
+- **Features**:
+  - Full commit history
+  - All branches
+  - Preserves entire repository
+
+### External Services
+
+#### Archive.org Extractor
+
+- **What it does**: Submits URL to Archive.org's Wayback Machine
+- **Output**: `archive.org.txt` with permalink
+- **Dependencies**: Internet connection
+- **Config**: `SAVE_ARCHIVE_DOT_ORG`
+- **Features**:
+  - Creates redundant backup
+  - Public archive (unless disabled)
+  - Free service
+- **Disable for private content**:
+  ```bash
+  archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+  ```
+
+## Archiving Workflow
+
+### Stage 1: URL Queuing
+
+```bash
+archivebox add 'https://example.com'
+```
+
+1. URL is parsed and validated
+2. Snapshot record created in database
+3. Initial metadata extracted (domain, timestamp)
+4. Status set to "queued"
+
+### Stage 2: Extraction
+
+Extractors run in order based on dependencies:
+
+1. **Fast extractors** (title, favicon, headers) - Run first
+2. **Chrome-based extractors** - Reuse browser session when possible
+3. **Heavy extractors** (media, git) - Run last
+
+Each extractor:
+- Creates output directory if needed
+- Runs its extraction process
+- Saves output files
+- Updates database with results
+- Records success/failure status
+
+### Stage 3: Indexing
+
+After extraction:
+
+1. Full-text search index updated (if enabled)
+2. Snapshot status updated to "succeeded" or "failed"
+3. File sizes and checksums recorded
+
+## Configuration Options
+
+### Enable/Disable Extractors
+
+```bash
+# Disable specific extractors
+archivebox config --set SAVE_PDF=False
+archivebox config --set SAVE_MEDIA=False
+
+# Enable only essential extractors
+archivebox config --set SAVE_SINGLEFILE=True
+archivebox config --set SAVE_SCREENSHOT=True
+archivebox config --set SAVE_PDF=False
+archivebox config --set SAVE_WARC=False
+```
+
+### Timeout Settings
+
+```bash
+# Increase timeout for slow sites (default: 60 seconds)
+archivebox config --set TIMEOUT=120
+
+# Per-extractor timeouts
+archivebox config --set SAVE_WGET_TIMEOUT=300
+archivebox config --set SAVE_MEDIA_TIMEOUT=300
+```
+
+### Retry Settings
+
+```bash
+# Retry failed extractions
+archivebox update --retry
+
+# Retry specific snapshot
+archivebox update --filter-url=example.com
+```
+
+### Media Download Limits
+
+```bash
+# Limit media file sizes (default: 750m)
+archivebox config --set YTDLP_MAX_SIZE=2g
+
+# Only download audio
+archivebox config --set YTDLP_EXTRACT_AUDIO=True
+```
+
+### Chrome Options
+
+```bash
+# Custom Chrome binary
+archivebox config --set CHROME_BINARY=/usr/bin/chromium
+
+# Chrome user agent
+archivebox config --set CHROME_USER_AGENT="Mozilla/5.0 ..."
+
+# Headless mode
+archivebox config --set CHROME_HEADLESS=True
+```
+
+## Advanced Features
+
+### Recursive Archiving
+
+Archive pages and their linked pages:
+
+```bash
+# Archive with depth=1 (follows one level of links)
+archivebox add --depth=1 'https://news.ycombinator.com'
+
+# Archive entire site (careful, can be huge!)
+archivebox add --depth=5 'https://example.com'
+```
+
+### Re-archiving
+
+Update existing snapshots:
+
+```bash
+# Re-archive all snapshots
+archivebox update
+
+# Re-archive specific snapshot
+archivebox update --filter-url=example.com
+
+# Only update search index
+archivebox update --index-only
+```
+
+### Extraction Logs
+
+View detailed logs:
+
+```bash
+# Check snapshot status
+archivebox status
+
+# View logs for specific snapshot
+archivebox list --filter-url=example.com --json
+```
+
+Logs are also stored in:
+- Database: `core_archiveresult` table
+- Filesystem: `{snapshot_dir}/index.json`
+
+## Troubleshooting
+
+### Common Issues
+
+**Timeouts on slow sites**:
+```bash
+archivebox config --set TIMEOUT=120
+```
+
+**Chrome crashes**:
+```bash
+# Use more memory
+archivebox config --set CHROME_MEMORY=2048
+
+# Or disable problematic extractors
+archivebox config --set SAVE_PDF=False
+```
+
+**SSL errors**:
+```bash
+archivebox config --set CHECK_SSL_VALIDITY=False
+```
+
+**Media download failures**:
+```bash
+# Update yt-dlp
+pip install --upgrade yt-dlp
+
+# Or increase timeout
+archivebox config --set YTDLP_TIMEOUT=300
+```
+
+### Debugging
+
+```bash
+# Check dependencies
+archivebox version
+
+# Test specific URL
+archivebox add --debug 'https://example.com'
+
+# View full config
+archivebox config
+```
+
+## See Also
+
+- [Output Formats](/features/output-formats) - What gets saved
+- [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) - All settings
+- [Dependencies](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies) - Required tools

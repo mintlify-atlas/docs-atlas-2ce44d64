@@ -1,0 +1,324 @@
+---
+title: 'archivebox persona'
+description: 'Manage Persona records - browser profiles for authenticated archiving'
+icon: 'user-secret'
+---
+
+## Overview
+
+The `archivebox persona` command manages Persona records in ArchiveBox. Personas are browser profiles that enable authenticated archiving by storing cookies, sessions, and browser state.
+
+## Model Purpose
+
+**Persona** - A browser profile for authenticated archiving. Each Persona:
+- Has a unique name
+- Stores browser cookies (Netscape format)
+- Contains Chrome/Chromium user data directory
+- Enables archiving of logged-in content
+- Can be imported from existing browser profiles
+
+## Use Cases for Personas
+
+- Archive **private social media** posts (Twitter, Facebook, LinkedIn)
+- Save **paywalled content** (news sites, research papers)
+- Capture **internal company** wikis and documentation
+- Archive **authenticated web apps** (dashboards, admin panels)
+- Preserve **member-only forums** and communities
+
+## Subcommands
+
+### create
+
+Create new Personas, optionally importing from browser.
+
+```bash
+archivebox persona create <names...> [options]
+```
+
+**Options:**
+- `--import` - Import profile from browser (chrome, chromium, brave, edge)
+
+**Examples:**
+
+```bash
+# Create empty persona
+archivebox persona create work
+
+# Create multiple personas
+archivebox persona create work personal research
+
+# Import from Chrome
+archivebox persona create work --import=chrome
+
+# Import from Brave
+archivebox persona create personal --import=brave
+
+# Import from Edge
+archivebox persona create work --import=edge
+```
+
+### list
+
+List Personas with optional filters.
+
+```bash
+archivebox persona list [options]
+```
+
+**Options:**
+- `--name` - Filter by exact name
+- `--name__icontains` - Filter by name containing text
+- `--limit`, `-n` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all personas
+archivebox persona list
+
+# Find specific persona
+archivebox persona list --name=work
+
+# Find personas containing text
+archivebox persona list --name__icontains=test
+```
+
+### update
+
+Update Personas from stdin JSONL (rename).
+
+```bash
+archivebox persona list [filters] | archivebox persona update [options]
+```
+
+**Options:**
+- `--name`, `-n` - Set new name
+
+**Examples:**
+
+```bash
+# Rename a persona
+archivebox persona list --name=old-name \
+  | archivebox persona update --name=new-name
+```
+
+### delete
+
+Delete Personas from stdin JSONL.
+
+```bash
+archivebox persona list [filters] | archivebox persona delete [options]
+```
+
+**Options:**
+- `--yes`, `-y` - Confirm deletion (required)
+- `--dry-run` - Show what would be deleted without deleting
+
+**Examples:**
+
+```bash
+# Preview deletion
+archivebox persona list --name=old \
+  | archivebox persona delete --dry-run
+
+# Delete persona
+archivebox persona list --name=old \
+  | archivebox persona delete --yes
+```
+
+## Common Use Cases
+
+### Import Browser Profile
+
+Import cookies and session from your browser:
+
+```bash
+# 1. Create persona from Chrome
+archivebox persona create twitter --import=chrome
+
+# This will:
+# - Copy Chrome profile to DATA_DIR/personas/twitter/chrome_user_data/
+# - Extract cookies to DATA_DIR/personas/twitter/cookies.txt
+# - Preserve login sessions
+
+# 2. Use persona for archiving
+export PERSONA=twitter
+archivebox add https://twitter.com/i/bookmarks
+```
+
+### Archive Authenticated Content
+
+Use personas to archive content behind login:
+
+```bash
+# 1. Create persona from browser
+archivebox persona create facebook --import=chrome
+
+# 2. Set persona for archiving
+export PERSONA=facebook
+
+# 3. Archive private content
+archivebox add https://www.facebook.com/saved
+archivebox add https://www.facebook.com/groups/...
+```
+
+### Multiple Personas
+
+Manage different personas for different sites:
+
+```bash
+# Create personas for different accounts
+archivebox persona create twitter-personal --import=chrome
+archivebox persona create twitter-work --import=chrome
+archivebox persona create reddit --import=chrome
+
+# Use specific persona
+export PERSONA=twitter-personal
+archivebox add https://twitter.com/home
+
+export PERSONA=twitter-work
+archivebox add https://twitter.com/i/lists/...
+
+export PERSONA=reddit
+archivebox add https://reddit.com/user/me/saved
+```
+
+### Manual Cookie Export
+
+If auto-import fails, manually export cookies:
+
+```bash
+# 1. Create empty persona
+archivebox persona create mysite
+
+# 2. Export cookies from browser using extension:
+#    - Chrome/Firefox: "Get cookies.txt LOCALLY" extension
+#    - Export in Netscape format
+
+# 3. Copy cookies to persona directory
+cp ~/Downloads/cookies.txt \
+   ./data/personas/mysite/cookies.txt
+
+# 4. Use persona
+export PERSONA=mysite
+archivebox add https://mysite.com/members-only
+```
+
+### Update Persona Cookies
+
+Refresh cookies when session expires:
+
+```bash
+# Option 1: Re-import from browser
+archivebox persona delete --yes  # Delete old
+archivebox persona create work --import=chrome  # Re-import
+
+# Option 2: Manually update cookies.txt
+# Export fresh cookies from browser, then:
+cp ~/Downloads/cookies.txt \
+   ./data/personas/work/cookies.txt
+```
+
+### List Persona Details
+
+Check persona configuration:
+
+```bash
+# List all personas with details
+archivebox persona list
+
+# Output shows:
+# work                 cookies:✓ chrome:✓ /data/personas/work
+# personal             cookies:✓ chrome:✓ /data/personas/personal
+# test                 cookies:✗ chrome:✗ /data/personas/test
+
+# ✓ = has cookies/chrome profile
+# ✗ = missing cookies/chrome profile
+```
+
+## Persona Directory Structure
+
+Each persona has this structure:
+
+```
+data/personas/<persona-name>/
+├── cookies.txt              # Netscape cookies file
+└── chrome_user_data/        # Chrome profile directory
+    ├── Default/
+    │   ├── Cookies
+    │   ├── History
+    │   ├── Preferences
+    │   └── ...
+    └── ...
+```
+
+## Supported Browsers
+
+Personas can import from:
+- **Chrome** - Google Chrome
+- **Chromium** - Open-source Chromium
+- **Brave** - Brave Browser
+- **Edge** - Microsoft Edge
+
+Firefox support coming soon.
+
+## Cookie Format
+
+Personas use **Netscape cookies.txt** format:
+
+```
+# Netscape HTTP Cookie File
+# https://curl.se/docs/http-cookies.html
+
+domain	includeSubdomains	path	secure	expiry	name	value
+.example.com	TRUE	/	TRUE	1735689600	session_id	abc123
+```
+
+This format is supported by:
+- wget
+- curl
+- yt-dlp
+- Most HTTP clients
+
+## Security Considerations
+
+1. **Cookies are sensitive** - They grant access to your accounts
+2. **Protect persona directories** - Set appropriate file permissions
+3. **Don't share personas** - They contain your login sessions
+4. **Refresh regularly** - Cookies expire and need updating
+5. **Use separate personas** - Don't mix personal/work accounts
+
+## JSONL Format
+
+Personas are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "id": "01JH...",
+  "name": "work",
+  "path": "/data/personas/work",
+  "CHROME_USER_DATA_DIR": "/data/personas/work/chrome_user_data",
+  "COOKIES_FILE": "/data/personas/work/cookies.txt"
+}
+```
+
+## Environment Variable
+
+Set active persona using environment variable:
+
+```bash
+# Set persona for current session
+export PERSONA=work
+
+# Archive with persona
+archivebox add https://example.com
+
+# One-time persona usage
+PERSONA=work archivebox add https://example.com
+```
+
+## See Also
+
+- [archivebox add](/usage/cli#add) - Add URLs using persona
+- [Configuration](/config/chrome) - Chrome and persona settings
+- [Plugins](/plugins/chrome) - Chrome plugin uses personas

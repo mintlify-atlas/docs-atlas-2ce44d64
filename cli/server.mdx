@@ -1,0 +1,550 @@
+---
+title: archivebox server
+description: Run the ArchiveBox web server with admin UI and background workers
+---
+
+The `server` command starts the ArchiveBox web interface, providing a graphical admin UI, background orchestrator, and API access.
+
+## Basic Usage
+
+```bash
+archivebox server
+```
+
+```bash docker
+docker compose up
+# or
+docker compose run -p 8000:8000 archivebox server
+```
+
+Access the UI at [http://127.0.0.1:8000](http://127.0.0.1:8000)
+
+## What It Provides
+
+### Web UI
+
+- **Public Index** - Browse archived snapshots
+- **Admin Interface** - Manage snapshots, crawls, tags, and settings
+- **Add URLs** - Web form for adding new archives
+- **Search** - Full-text search across archives
+- **API** - REST API for programmatic access
+
+### Background Services
+
+- **Orchestrator** - Processes archiving queue
+- **Workers** - Parallel extraction workers
+- **Schedulers** - Handles periodic tasks
+
+## Server Modes
+
+### Production Mode (Default)
+
+Runs with supervisord managing multiple workers:
+
+```bash
+archivebox server
+```
+
+**Components:**
+- Daphne (ASGI web server)
+- Orchestrator (background worker)
+- Automatic restart on crashes
+- Process management via supervisord
+
+**Access:**
+- Web UI: [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- Admin: [http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin)
+
+### Development Mode
+
+Runs Django's development server with debugging:
+
+```bash
+archivebox server --debug
+# or
+archivebox server --reload
+```
+
+**Features:**
+- Auto-reload on code changes (`--reload`)
+- Detailed error pages
+- Debug toolbar
+- Single-threaded execution
+
+<Warning>
+  Development mode is NOT suitable for production. Use only for testing and development.
+</Warning>
+
+## Options
+
+### Custom Host/Port
+
+Specify bind address and port:
+
+```bash
+archivebox server 0.0.0.0:8000
+archivebox server 8080
+archivebox server 192.168.1.100:8080
+```
+
+Default: `127.0.0.1:8000`
+
+### `--reload`
+
+Enable auto-reload on code/template changes (development):
+
+```bash
+archivebox server --reload
+```
+
+Useful for:
+- Plugin development
+- Template customization  
+- Configuration testing
+
+### `--debug`
+
+Enable DEBUG mode with verbose errors:
+
+```bash
+archivebox server --debug
+```
+
+Shows:
+- Full error tracebacks
+- SQL queries
+- Template rendering details
+- Debug toolbar
+
+### `--init`
+
+Run `archivebox init --quick` before starting server:
+
+```bash
+archivebox server --init
+```
+
+Useful for:
+- First-time setup
+- Automated deployments
+- Container startup
+
+### `--nothreading`
+
+Force single-threaded mode (debug only):
+
+```bash
+archivebox server --debug --nothreading
+```
+
+Useful for debugging race conditions.
+
+### `--daemonize`
+
+Run server in background as daemon:
+
+```bash
+archivebox server --daemonize
+```
+
+Server runs detached. Stop with:
+```bash
+pkill -f "archivebox server"
+```
+
+## Examples
+
+### Start Server (Default)
+
+```bash
+archivebox server
+```
+
+Output:
+```
+[+] Starting ArchiveBox webserver...
+    > Starting ArchiveBox webserver on http://127.0.0.1:8000
+    > Log in to ArchiveBox Admin UI on http://127.0.0.1:8000/admin
+    > Writing ArchiveBox error log to ./logs/errors.log
+```
+
+### Start on Different Port
+
+```bash
+archivebox server 8080
+```
+
+Access at [http://127.0.0.1:8080](http://127.0.0.1:8080)
+
+### Listen on All Interfaces
+
+Make server accessible from network:
+
+```bash
+archivebox server 0.0.0.0:8000
+```
+
+<Warning>
+  Only use `0.0.0.0` on trusted networks. Consider using a reverse proxy with authentication for public access.
+</Warning>
+
+### Development Mode
+
+Start with auto-reload and debugging:
+
+```bash
+archivebox server --reload --debug
+```
+
+### Initialize and Start
+
+Setup and start in one command:
+
+```bash
+archivebox server --init
+```
+
+### Background Daemon
+
+Run server as background process:
+
+```bash
+archivebox server --daemonize
+```
+
+Check it's running:
+```bash
+ps aux | grep archivebox
+```
+
+Stop it:
+```bash
+pkill -f "archivebox server"
+```
+
+### Docker Server
+
+Using docker-compose:
+
+```bash
+docker compose up
+```
+
+Or standalone:
+
+```bash
+docker run -v $PWD:/data -p 8000:8000 -it archivebox/archivebox server 0.0.0.0:8000
+```
+
+## Creating Admin User
+
+Before accessing the admin UI, create a superuser:
+
+```bash
+archivebox manage createsuperuser
+```
+
+Or set environment variables before init:
+
+```bash
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=SecurePassword123
+archivebox init
+archivebox server
+```
+
+In Docker:
+
+```yaml docker-compose.yml
+services:
+  archivebox:
+    environment:
+      - ADMIN_USERNAME=admin  
+      - ADMIN_PASSWORD=SecurePassword123
+```
+
+## Accessing the UI
+
+### Public Index
+
+[http://127.0.0.1:8000](http://127.0.0.1:8000)
+
+Browse archived snapshots (if `PUBLIC_INDEX=true`).
+
+### Admin Interface  
+
+[http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin)
+
+Full control panel:
+- Manage snapshots and crawls
+- View archiving status
+- Configure settings
+- Manage users and permissions
+- View logs
+
+### Add URLs
+
+[http://127.0.0.1:8000/add](http://127.0.0.1:8000/add)
+
+Web form for adding new URLs.
+
+### API
+
+[http://127.0.0.1:8000/api](http://127.0.0.1:8000/api)
+
+REST API for programmatic access.
+
+## Background Processing
+
+When server is running, it automatically:
+
+1. **Processes queue** - Archives queued snapshots
+2. **Runs extractors** - Executes plugins in parallel
+3. **Updates status** - Tracks progress in real-time
+4. **Retries failures** - Re-attempts failed archives
+
+### Monitoring Workers
+
+Check orchestrator status:
+
+```bash
+ps aux | grep orchestrator
+```
+
+View logs:
+
+```bash
+tail -f logs/errors.log
+```
+
+## Stopping the Server
+
+### Graceful Shutdown
+
+Press `Ctrl+C` in the terminal:
+
+```
+^C
+[🟩] ArchiveBox server shut down gracefully.
+```
+
+### Force Kill
+
+If server doesn't respond:
+
+```bash
+pkill -f "archivebox server"
+pkill -f supervisord
+pkill -f daphne
+```
+
+### Docker Shutdown
+
+```bash
+docker compose down
+```
+
+## Reverse Proxy Setup
+
+For production, use nginx or Apache:
+
+### Nginx Example
+
+```nginx
+server {
+    listen 80;
+    server_name archive.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Apache Example
+
+```apache
+<VirtualHost *:80>
+    ServerName archive.example.com
+    
+    ProxyPreserveHost On
+    ProxyPass / http://127.0.0.1:8000/
+    ProxyPassReverse / http://127.0.0.1:8000/
+</VirtualHost>
+```
+
+## Configuration
+
+### Server Settings
+
+Configure via [`archivebox config`](/cli/config):
+
+```bash
+# Bind address
+archivebox config --set BIND_ADDR=0.0.0.0:8000
+
+# Public access
+archivebox config --set PUBLIC_INDEX=true
+archivebox config --set PUBLIC_SNAPSHOTS=true
+
+# Public add view
+archivebox config --set PUBLIC_ADD_VIEW=false
+```
+
+### Environment Variables
+
+Or use environment variables:
+
+```bash
+export BIND_ADDR=0.0.0.0:8000
+export PUBLIC_INDEX=true
+archivebox server
+```
+
+## Troubleshooting
+
+### Port already in use
+
+```
+[X] Error: Port 8000 is already in use
+```
+
+**Solution:** Use different port:
+```bash
+archivebox server 8080
+```
+
+Or stop conflicting process:
+```bash
+lsof -ti:8000 | xargs kill -9
+```
+
+### Server already running
+
+```
+[X] Error: ArchiveBox server is already running
+```
+
+**Solution:** Stop existing server:
+```bash
+pkill -f "archivebox server"
+pkill -f supervisord
+```
+
+### Cannot create admin user
+
+```
+Hint: To create an admin username & password, run:
+    archivebox manage createsuperuser
+```
+
+**Solution:**
+```bash
+archivebox manage createsuperuser
+```
+
+### Workers not processing queue
+
+**Check orchestrator is running:**
+```bash
+ps aux | grep orchestrator
+```
+
+**Restart server:**
+```bash
+pkill -f "archivebox server"
+archivebox server
+```
+
+### Permission errors
+
+**Solution:** Check file ownership:
+```bash
+ls -la
+sudo chown -R $USER:$USER .
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="add" icon="plus" href="/cli/add">
+    Queue URLs via CLI
+  </Card>
+  <Card title="manage" icon="terminal" href="/cli/manage">
+    Django management commands
+  </Card>
+  <Card title="config" icon="gear" href="/cli/config">
+    Configure server settings
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check server health
+  </Card>
+</CardGroup>
+
+## Production Deployment
+
+### Systemd Service
+
+Create `/etc/systemd/system/archivebox.service`:
+
+```ini
+[Unit]
+Description=ArchiveBox Server
+After=network.target
+
+[Service]
+Type=simple
+User=archivebox
+WorkingDirectory=/data/archivebox
+ExecStart=/usr/local/bin/archivebox server 0.0.0.0:8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl enable archivebox
+sudo systemctl start archivebox
+```
+
+### Docker Compose Production
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  archivebox:
+    image: archivebox/archivebox:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - PUBLIC_INDEX=false
+      - PUBLIC_SNAPSHOTS=false
+    restart: always
+```
+
+Start:
+```bash
+docker compose up -d
+```
+
+## Best Practices
+
+1. **Use reverse proxy** - nginx/Apache for SSL and caching
+2. **Set strong passwords** - For admin accounts
+3. **Disable public access** - Unless needed: `PUBLIC_INDEX=false`
+4. **Monitor logs** - `tail -f logs/errors.log`
+5. **Regular backups** - Backup `index.sqlite3` and `archive/`
+6. **Use systemd** - For automatic restart and logging
+7. **Firewall rules** - Restrict access to trusted IPs
+8. **SSL/TLS** - Use HTTPS via reverse proxy

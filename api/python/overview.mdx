@@ -1,0 +1,228 @@
+---
+title: Python API Overview
+description: Using ArchiveBox as a Python library
+---
+
+# Python API Overview
+
+ArchiveBox can be used as a Python library to programmatically manage your web archive. This allows you to integrate archiving functionality directly into your Python applications.
+
+## Installation
+
+```bash
+pip install archivebox
+```
+
+## Basic Usage
+
+### Interactive Python Shell
+
+The easiest way to explore the Python API is through the interactive shell:
+
+```bash
+archivebox shell
+```
+
+This opens a Python REPL with Django ORM and ArchiveBox models pre-loaded.
+
+### Importing ArchiveBox in Your Code
+
+```python
+import archivebox
+from archivebox.core.models import Snapshot, Tag, ArchiveResult
+from archivebox.crawls.models import Crawl
+from archivebox.config import CONFIG
+```
+
+<Warning>
+Make sure you're in an ArchiveBox data directory or have the `DATA_DIR` environment variable set before importing ArchiveBox:
+
+```python
+import os
+os.environ['DATA_DIR'] = '/path/to/archivebox/data'
+import archivebox
+```
+</Warning>
+
+## Common Usage Patterns
+
+### Querying Snapshots
+
+```python
+from archivebox.core.models import Snapshot
+
+# Get all snapshots
+all_snapshots = Snapshot.objects.all()
+
+# Filter by URL
+snapshots = Snapshot.objects.filter(url__contains='example.com')
+
+# Get a specific snapshot by ID
+snapshot = Snapshot.objects.get(id='01234567-89ab-cdef-0123-456789abcdef')
+
+# Search by timestamp
+snapshot = Snapshot.objects.get(timestamp='1234567890')
+```
+
+### Creating Snapshots
+
+```python
+from archivebox.core.models import Snapshot
+from archivebox.crawls.models import Crawl
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+user = User.objects.get(username='admin')
+
+# Create a crawl first (groups related snapshots)
+crawl = Crawl.objects.create(
+    label='My Python Import',
+    urls='https://example.com',
+    max_depth=0,
+    created_by=user
+)
+
+# Create a snapshot
+snapshot = Snapshot.objects.create(
+    url='https://example.com',
+    crawl=crawl,
+    depth=0
+)
+
+# Start archiving (runs extractors)
+snapshot.archive()
+```
+
+### Working with Tags
+
+```python
+from archivebox.core.models import Tag, Snapshot
+
+# Create or get a tag
+tag, created = Tag.objects.get_or_create(name='important')
+
+# Add tag to snapshot
+snapshot = Snapshot.objects.first()
+snapshot.tags.add(tag)
+
+# Query snapshots by tag
+tagged_snapshots = Snapshot.objects.filter(tags__name='important')
+
+# Get all tags for a snapshot
+tags = snapshot.tags.all()
+print([tag.name for tag in tags])
+```
+
+### Accessing Archive Results
+
+```python
+from archivebox.core.models import Snapshot, ArchiveResult
+
+snapshot = Snapshot.objects.first()
+
+# Get all archive results for this snapshot
+results = snapshot.archiveresult_set.all()
+
+# Filter by status
+succeeded = snapshot.archiveresult_set.filter(status='succeeded')
+failed = snapshot.archiveresult_set.filter(status='failed')
+
+# Get specific extractor results
+screenshot = snapshot.archiveresult_set.filter(plugin='screenshot').first()
+if screenshot:
+    print(f"Status: {screenshot.status}")
+    print(f"Output: {screenshot.output_str}")
+    print(f"Files: {screenshot.output_files}")
+```
+
+### Exporting Data
+
+```python
+from archivebox.core.models import Snapshot
+
+# Export to JSON
+snapshots = Snapshot.objects.all()
+json_output = snapshots.to_json(with_headers=True)
+
+# Export to CSV
+csv_output = snapshots.to_csv(cols=['timestamp', 'url', 'title'])
+
+# Export to HTML
+html_output = snapshots.to_html(with_headers=True)
+
+# Export single snapshot
+snapshot = Snapshot.objects.first()
+snapshot_dict = snapshot.to_dict(extended=True)
+```
+
+## Configuration Access
+
+Access ArchiveBox configuration programmatically:
+
+```python
+from archivebox.config import (
+    ARCHIVING_CONFIG,
+    STORAGE_CONFIG,
+    SERVER_CONFIG,
+    CONSTANTS
+)
+
+# Access configuration values
+timeout = ARCHIVING_CONFIG.TIMEOUT
+user_agent = ARCHIVING_CONFIG.USER_AGENT
+data_dir = CONSTANTS.DATA_DIR
+archive_dir = CONSTANTS.ARCHIVE_DIR
+
+# Get all config sections
+from archivebox.config import get_CONFIG
+config = get_CONFIG()
+print(config.keys())  # ['SHELL_CONFIG', 'STORAGE_CONFIG', ...]
+```
+
+## Hook System
+
+Discover and run hooks programmatically:
+
+```python
+from archivebox.hooks import discover_hooks, run_hook
+from pathlib import Path
+
+# Discover all Snapshot hooks
+hooks = discover_hooks('Snapshot', filter_disabled=True)
+for hook in hooks:
+    print(f"{hook.parent.name}: {hook.name}")
+
+# Run a specific hook
+result = run_hook(
+    script=Path('/path/to/hook.py'),
+    snapshot=snapshot,
+    url='https://example.com',
+    timeout=60
+)
+print(f"Exit code: {result['returncode']}")
+print(f"Output: {result['stdout']}")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Models Reference" icon="database" href="/api/python/models">
+    Learn about Snapshot, Crawl, Tag, and ArchiveResult models
+  </Card>
+  <Card title="Extractors API" icon="puzzle-piece" href="/api/python/extractors">
+    Use extractors programmatically and create custom ones
+  </Card>
+  <Card title="Config API" icon="gear" href="/api/python/config">
+    Read and modify configuration programmatically
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/cli/commands">
+    ArchiveBox CLI commands documentation
+  </Card>
+</CardGroup>
+
+## Full API Documentation
+
+For complete API documentation including all methods and attributes, see:
+
+- [API Docs (auto-generated)](https://docs.archivebox.io/en/latest/modules.html)
+- [Source Code](https://github.com/ArchiveBox/ArchiveBox)

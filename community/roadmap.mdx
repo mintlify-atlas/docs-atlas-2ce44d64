@@ -1,0 +1,339 @@
+---
+title: Roadmap & Future Plans
+description: Planned features and upcoming improvements for ArchiveBox
+---
+
+# Roadmap & Future Plans
+
+ArchiveBox is under active development with an exciting roadmap of planned features and improvements.
+
+## Official Roadmap
+
+For the most up-to-date roadmap, see:
+
+<Card title="ArchiveBox Roadmap" icon="map" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">
+  View the complete roadmap on the GitHub Wiki
+</Card>
+
+## Current Development Focus
+
+### Plugin System Improvements
+
+We're actively enhancing the plugin architecture to make ArchiveBox more extensible:
+
+- Better plugin dependency management
+- Improved plugin configuration
+- Enhanced plugin testing and coverage
+- More modular extractor plugins
+
+### Performance & Scaling
+
+Optimizing ArchiveBox for larger archives:
+
+- Database query optimization
+- Better handling of large crawls
+- Improved concurrency and parallelization
+- More efficient storage management
+
+### User Experience
+
+Making ArchiveBox easier to use:
+
+- Enhanced web UI with better navigation
+- Improved CLI output and feedback
+- Better error messages and debugging
+- Simplified configuration
+
+## Planned Features
+
+### JavaScript Execution During Archiving
+
+**Status**: Planned
+
+Run custom JavaScript during archiving to:
+
+- Block ads and tracking scripts
+- Dismiss cookie popups and modals
+- Auto-scroll infinite feeds
+- Expand comment threads
+- Close overlays and interstitials
+
+Follow progress: [Issue #51](https://github.com/ArchiveBox/ArchiveBox/issues/51)
+
+### Multi-Snapshot Improvements
+
+**Status**: Planned
+
+Better support for saving multiple snapshots of the same URL:
+
+- Native multi-snapshot tracking without hash-date workaround
+- Visual diff comparison between snapshots
+- Change detection and alerting
+- Timeline view of changes
+
+Follow progress: [Issue #179](https://github.com/ArchiveBox/ArchiveBox/issues/179)
+
+### Enhanced Crawling
+
+**Status**: In Development
+
+More advanced crawling capabilities:
+
+- Better depth control and scoping
+- Intelligent crawl scheduling
+- Domain and path filtering
+- Crawl budget management
+- Integration with advanced crawlers (Browsertrix, Scrapy)
+
+### Federation & Sharing
+
+**Status**: Planned
+
+Share portions of your archive with others:
+
+- Federated archive discovery
+- Selective sharing with other ArchiveBox instances
+- Contribution to central archives (Archive.org integration)
+- Collaborative archiving projects
+
+### REST API Enhancements
+
+**Status**: Alpha → Beta
+
+Improving the REST API:
+
+- Complete API coverage for all features
+- Better documentation and examples
+- API versioning and stability
+- Webhooks for events
+- GraphQL support consideration
+
+Current API: https://demo.archivebox.io/api (alpha)
+
+## Extractors & Integrations
+
+### New Extractors in Development
+
+- **Better audio/video handling** - Enhanced media extraction
+- **Social media improvements** - Better support for Twitter, Reddit, etc.
+- **Document formats** - Enhanced PDF, DOCX, etc. archiving
+- **Email archiving** - Archive email threads and attachments
+
+### Platform Integrations
+
+- **Cloud storage** - Better S3, B2, Google Drive integration
+- **Search backends** - Enhanced FTS5, Sonic, Elasticsearch support
+- **Authentication** - More SSO/OAuth providers
+- **Monitoring** - Prometheus metrics, logging improvements
+
+## Technical Improvements
+
+### Database & Storage
+
+- **PostgreSQL support** - Optional PostgreSQL backend (in addition to SQLite)
+- **Object storage** - Better remote storage handling
+- **Deduplication** - Content deduplication across snapshots
+- **Compression** - Automatic compression of archived content
+
+### Security & Privacy
+
+- **End-to-end encryption** - Encrypted archive storage
+- **Access controls** - Fine-grained permissions
+- **Audit logging** - Comprehensive activity logs
+- **Security hardening** - Enhanced security defaults
+
+### Developer Experience
+
+- **Better Python API** - More Pythonic interfaces
+- **Type hints** - Complete type coverage
+- **Documentation** - Comprehensive API docs
+- **Testing** - Higher test coverage
+- **CI/CD** - Faster, more reliable builds
+
+## Platform Support
+
+### Desktop Applications
+
+**Status**: Alpha
+
+- **Electron app** - Cross-platform desktop app
+- **Native apps** - Platform-specific native applications
+
+See: [electron-archivebox](https://github.com/ArchiveBox/electron-archivebox)
+
+### Mobile Support
+
+**Status**: Planned
+
+- Mobile-optimized web UI
+- Progressive Web App (PWA)
+- Mobile apps consideration
+
+### Browser Extension
+
+**Status**: Active Development
+
+Continued improvements to the official browser extension:
+
+- Better Firefox support
+- One-click archiving improvements
+- Offline queue management
+- Better error handling
+
+See: [archivebox-browser-extension](https://github.com/ArchiveBox/archivebox-browser-extension)
+
+## Community & Documentation
+
+### Documentation Improvements
+
+- **Comprehensive guides** - Step-by-step tutorials
+- **Video tutorials** - Screencasts and walkthroughs
+- **Use case examples** - Real-world scenarios
+- **API documentation** - Complete API reference
+- **Troubleshooting** - Common issues and solutions
+
+### Community Building
+
+- **Forums** - Dedicated discussion forums
+- **Chat** - Real-time community chat
+- **Events** - Virtual meetups and conferences
+- **Showcase** - User archive showcases
+
+## Long-Term Vision
+
+### Distributed Web Archiving
+
+Building towards a distributed web archiving network:
+
+1. **Individual archives** - Easy self-hosting for everyone
+2. **Selective sharing** - Share specific content with others
+3. **Federation** - Connect archives in a network
+4. **Collective preservation** - Community-driven archiving
+
+### Sustainability
+
+Ensuring ArchiveBox's long-term sustainability:
+
+- **Open source** - Always free and open source
+- **Nonprofit status** - 501(c)(3) fiscal sponsorship
+- **Professional services** - Optional paid support sustains development
+- **Community support** - Active contributor community
+
+## How to Influence the Roadmap
+
+### Vote on Features
+
+1. Browse [GitHub Issues](https://github.com/ArchiveBox/ArchiveBox/issues)
+2. Add 👍 reactions to features you want
+3. Comment with your use case
+4. Help prioritize development
+
+### Request New Features
+
+1. Search existing issues first
+2. Open a new issue with:
+   - Clear use case description
+   - Expected behavior
+   - Example workflows
+3. Discuss with maintainers
+4. Consider contributing!
+
+### Contribute Development
+
+Help build the features you want:
+
+1. Check "help wanted" issues
+2. Discuss implementation approach
+3. Submit pull requests
+4. See [Contributing Guide](/community/contributing)
+
+## Roadmap Priorities
+
+### High Priority
+
+- Stability and bug fixes
+- Performance optimization
+- Security improvements
+- Core feature completion
+
+### Medium Priority
+
+- New extractors
+- API improvements
+- UI/UX enhancements
+- Platform integrations
+
+### Lower Priority
+
+- Experimental features
+- Nice-to-have improvements
+- Alternative interfaces
+- Platform-specific features
+
+## Release Timeline
+
+We don't commit to specific release dates, but typical cadence:
+
+- **Patch releases**: As needed for critical fixes
+- **Minor releases**: Every 2-3 months
+- **Major releases**: When significant changes warrant
+
+See [Changelog](/community/changelog) for release history.
+
+## Experimental Features
+
+Some features are experimental and may change:
+
+- **REST API** (currently alpha)
+- **Electron desktop app** (currently alpha)
+- **Some extractors** (marked as beta)
+
+Use experimental features at your own risk in production.
+
+## Deprecated Features
+
+Features being phased out:
+
+- Check release notes for deprecation notices
+- Warnings shown before removal
+- Migration paths provided
+
+See [Changelog](/community/changelog) for deprecation timeline.
+
+## Questions About the Roadmap?
+
+- **GitHub Discussions**: Ask questions and discuss features
+- **GitHub Issues**: Vote on and discuss specific features
+- **Twitter**: Follow [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) for updates
+
+## Stay Updated
+
+<CardGroup cols={2}>
+  <Card title="Watch on GitHub" icon="github" href="https://github.com/ArchiveBox/ArchiveBox">
+    Get notified of new releases and discussions
+  </Card>
+  
+  <Card title="Follow on Twitter" icon="twitter" href="https://twitter.com/ArchiveBoxApp">
+    Get updates on development progress
+  </Card>
+  
+  <Card title="Read the Changelog" icon="list" href="/community/changelog">
+    See what's been released recently
+  </Card>
+  
+  <Card title="Join Discussions" icon="comments" href="https://github.com/ArchiveBox/ArchiveBox/discussions">
+    Participate in roadmap discussions
+  </Card>
+</CardGroup>
+
+## Contributing to the Vision
+
+Help shape ArchiveBox's future:
+
+- Share your use cases and needs
+- Test new features and provide feedback
+- Contribute code and documentation
+- Support the project financially
+- Spread the word about web archiving
+
+Together we can preserve the internet for future generations!

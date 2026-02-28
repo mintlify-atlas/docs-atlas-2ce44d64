@@ -1,0 +1,499 @@
+---
+title: 'Chrome-Based Plugins'
+description: 'Plugins that use Chrome DevTools Protocol (CDP)'
+---
+
+## Chrome Plugin Architecture
+
+Many ArchiveBox plugins depend on Chrome/Chromium via the Chrome DevTools Protocol (CDP). The **chrome** plugin provides the core infrastructure that other plugins build upon.
+
+<Warning>
+Chrome plugins **are not allowed to depend on ArchiveBox or Django**. They can only depend on:
+- `archivebox/plugins/chrome/chrome_utils.js` - Core Chrome utilities
+- `archivebox/plugins/chrome/tests/chrome_test_utils.py` - Test utilities
+</Warning>
+
+## Core Chrome Plugin
+
+The foundation for all Chrome-based operations:
+
+### chrome
+Core Chrome/Chromium integration and browser lifecycle management.
+
+- **Plugin**: `chrome`
+- **Purpose**: Launch and manage Chrome/Chromium sessions
+- **Features**:
+  - Browser process management
+  - CDP connection handling
+  - Session persistence
+  - Profile management
+  - Extension loading
+- **Config**:
+  - `CHROME_ENABLED` (default: `true`)
+  - `CHROME_BINARY` (default: `"chromium"`)
+  - `CHROME_HEADLESS` (default: `true`)
+  - `CHROME_SANDBOX` (default: `true`)
+  - `CHROME_TIMEOUT` (default: `60`)
+  - `CHROME_RESOLUTION` (default: `"1440,2000"`)
+  - `CHROME_USER_DATA_DIR` - Persistent profile directory
+  - `CHROME_ARGS` - Chrome command-line flags
+  - `CHROME_PAGELOAD_TIMEOUT` (default: `60`)
+  - `CHROME_WAIT_FOR` (default: `"networkidle2"`) - Page load condition
+  - `CHROME_DELAY_AFTER_LOAD` (default: `0`) - Extra delay for SPAs
+
+**Chrome Arguments** (default flags):
+```javascript
+[
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--disable-blink-features=AutomationControlled",
+  "--disable-notifications",
+  "--disable-popup-blocking",
+  "--autoplay-policy=no-user-gesture-required",
+  "--enable-webgl",
+  "--export-tagged-pdf",
+  // ... and many more for optimal archiving
+]
+```
+
+<Tip>
+Set `CHROME_USER_DATA_DIR` to persist login sessions and cookies across runs.
+</Tip>
+
+## Metadata Extraction Plugins
+
+These plugins use CDP to extract metadata without modifying page content:
+
+### dns
+Resolve and record DNS information.
+
+- **Output**: `dns/dns.json`
+- **Config**: `DNS_ENABLED` (default: `true`)
+- **Extracts**: IP addresses, DNS records
+- **Use case**: Track IP changes, verify domain ownership
+
+### ssl
+Capture SSL/TLS certificate information.
+
+- **Output**: `ssl/ssl.json`
+- **Config**: `SSL_ENABLED` (default: `true`)
+- **Extracts**: Certificate details, expiry, issuer
+- **Use case**: Security auditing, certificate tracking
+
+### headers
+Capture HTTP response headers.
+
+- **Output**: `headers/headers.json`
+- **Config**: `HEADERS_ENABLED` (default: `true`)
+- **Extracts**: All HTTP response headers
+- **Use case**: Debug caching, security headers, redirects
+
+### redirects
+Track redirect chains.
+
+- **Output**: `redirects/redirects.json`
+- **Config**: `REDIRECTS_ENABLED` (default: `true`)
+- **Extracts**: All redirects from initial URL to final destination
+- **Use case**: Track URL changes, detect redirect loops
+
+### responses
+Capture network responses.
+
+- **Output**: `responses/responses.json`
+- **Config**: `RESPONSES_ENABLED` (default: `true`)
+- **Extracts**: All network requests and responses
+- **Use case**: Debug API calls, track resource loading
+
+### consolelog
+Capture browser console output.
+
+- **Output**: `consolelog/consolelog.txt`
+- **Config**: `CONSOLELOG_ENABLED` (default: `true`)
+- **Extracts**: console.log, console.error, console.warn output
+- **Use case**: Debug JavaScript errors, track analytics calls
+
+### title
+Extract page title from the DOM.
+
+- **Output**: `title/title.txt`
+- **Config**: `TITLE_ENABLED` (default: `true`)
+- **Extracts**: Page `<title>` tag
+- **Use case**: Metadata for search, display in UI
+
+### favicon
+Download site favicon.
+
+- **Output**: `favicon/favicon.ico`
+- **Config**: `FAVICON_ENABLED` (default: `true`)
+- **Extracts**: Site icon (checks multiple locations)
+- **Use case**: Visual identification in UI
+
+### accessibility
+Extract accessibility tree.
+
+- **Output**: `accessibility/accessibility.json`
+- **Config**: `ACCESSIBILITY_ENABLED` (default: `true`)
+- **Extracts**: Complete accessibility tree structure
+- **Use case**: Accessibility auditing, screen reader testing
+
+### seo
+Extract SEO metadata.
+
+- **Output**: `seo/seo.json`
+- **Config**: `SEO_ENABLED` (default: `true`)
+- **Extracts**: meta tags, Open Graph, Twitter Cards
+- **Use case**: Track SEO metadata, social sharing info
+
+### hashes
+Calculate content hashes.
+
+- **Output**: `hashes/hashes.json`
+- **Config**: `HASHES_ENABLED` (default: `true`)
+- **Extracts**: SHA256 hashes of page content
+- **Use case**: Detect content changes, deduplication
+
+## Content Extraction Plugins
+
+These plugins use CDP to extract and save page content:
+
+### dom
+Capture complete DOM snapshot.
+
+- **Output**: `dom/dom.html`
+- **Config**: `DOM_ENABLED` (default: `true`)
+- **Dependencies**: chrome
+- **Use case**: Preserve JavaScript-rendered content
+
+See [Extractor Plugins](/plugins/extractors#dom) for details.
+
+### screenshot
+Capture full-page screenshot.
+
+- **Output**: `screenshot/screenshot.png`
+- **Config**: `SCREENSHOT_ENABLED` (default: `true`)
+- **Dependencies**: chrome
+- **Use case**: Visual snapshots
+
+See [Extractor Plugins](/plugins/extractors#screenshot) for details.
+
+### pdf
+Generate PDF version.
+
+- **Output**: `pdf/pdf.pdf`
+- **Config**: `PDF_ENABLED` (default: `true`)
+- **Dependencies**: chrome
+- **Use case**: Print-friendly archives
+
+See [Extractor Plugins](/plugins/extractors#pdf) for details.
+
+### singlefile
+Save complete HTML with inlined resources.
+
+- **Output**: `singlefile/singlefile.html`
+- **Config**: `SINGLEFILE_ENABLED` (default: `true`)
+- **Dependencies**: chrome, npm
+- **Can run as**: CLI tool or Chrome extension
+- **Use case**: Self-contained HTML files
+
+See [Extractor Plugins](/plugins/extractors#singlefile) for details.
+
+### staticfile
+Download direct file links.
+
+- **Output**: `staticfile/{filename}`
+- **Config**: `STATICFILE_ENABLED` (default: `true`)
+- **Dependencies**: chrome (uses CDP download handling)
+- **Use case**: Archive PDFs, images, executables
+
+See [Extractor Plugins](/plugins/extractors#static-file) for details.
+
+## Browser Extension Plugins
+
+These plugins install and control Chrome extensions:
+
+### ublock
+uBlock Origin ad blocker.
+
+- **Extension**: uBlock Origin
+- **Config**: `UBLOCK_ENABLED` (default: `false`)
+- **Purpose**: Block ads and trackers during archiving
+- **Use case**: Cleaner archives, faster loading, privacy
+
+<Note>
+Extensions persist across sessions when using `CHROME_USER_DATA_DIR`.
+</Note>
+
+### istilldontcareaboutcookies
+Automatically dismiss cookie consent banners.
+
+- **Extension**: I Still Don't Care About Cookies
+- **Config**: `ISTILLDONTCAREABOUTCOOKIES_ENABLED` (default: `false`)
+- **Purpose**: Remove cookie banners automatically
+- **Use case**: Cleaner screenshots, better DOM snapshots
+
+### twocaptcha
+Automatic CAPTCHA solving.
+
+- **Extension**: 2Captcha Solver
+- **Config**:
+  - `TWOCAPTCHA_ENABLED` (default: `false`)
+  - `TWOCAPTCHA_API_KEY` - Your 2Captcha API key
+- **Purpose**: Solve CAPTCHAs automatically
+- **Use case**: Archive CAPTCHA-protected sites
+- **Cost**: Requires paid 2Captcha account
+
+<Warning>
+CAPTCHA solving costs money (typically $1-3 per 1000 CAPTCHAs). Use sparingly!
+</Warning>
+
+## Page Manipulation Plugins
+
+These plugins modify page behavior before archiving:
+
+### modalcloser
+Automatically close modal dialogs.
+
+- **Config**: `MODALCLOSER_ENABLED` (default: `false`)
+- **Purpose**: Dismiss popups, overlays, login prompts
+- **Use case**: Better screenshots, cleaner DOM
+- **Method**: Injects JavaScript to close common modal patterns
+
+### infiniscroll
+Handle infinite scroll pages.
+
+- **Config**: `INFINISCROLL_ENABLED` (default: `false`)
+- **Purpose**: Scroll page to load all content
+- **Use case**: Archive infinite-scroll sites (Twitter, Facebook, etc.)
+- **Method**: Automatically scrolls until no new content loads
+
+<Tip>
+Combine `modalcloser` and `infiniscroll` for best results with modern web apps:
+```bash
+export MODALCLOSER_ENABLED=True
+export INFINISCROLL_ENABLED=True
+```
+</Tip>
+
+## Chrome Session Management
+
+### Session Lifecycle
+
+1. **Crawl Start**: Chrome plugin launches browser with `on_Crawl__*` hook
+2. **Session Creation**: Browser starts, CDP endpoint exposed
+3. **Plugin Connections**: Other plugins connect to existing session
+4. **Snapshot Processing**: Multiple plugins share the same session
+5. **Crawl End**: Browser closes when all snapshots complete
+
+### Session Persistence
+
+Use persistent profiles for:
+- **Login sessions**: Stay logged in across runs
+- **Cookies**: Preserve authentication
+- **Extensions**: Keep extension state
+- **Settings**: Maintain browser preferences
+
+```bash
+# Set persistent user data directory
+export CHROME_USER_DATA_DIR="/path/to/chrome/profile"
+
+# Or use persona (auto-managed profiles)
+export ACTIVE_PERSONA="my-logged-in-profile"
+```
+
+### Multiple Snapshots, One Session
+
+Chrome plugins are designed to reuse sessions:
+
+```
+Crawl starts → Chrome launches
+  ↓
+  Snapshot 1 → All Chrome plugins connect to same session
+  Snapshot 2 → Reuse session (faster!)
+  Snapshot 3 → Reuse session
+  ...
+  ↓
+Crawl ends → Chrome closes
+```
+
+This is **much faster** than launching Chrome for each snapshot.
+
+## Chrome Configuration
+
+### Headless vs Headful
+
+```bash
+# Headless (default) - no GUI
+export CHROME_HEADLESS=True
+
+# Headful - show browser (debugging)
+export CHROME_HEADLESS=False
+```
+
+### Sandbox
+
+```bash
+# Enable sandbox (default, more secure)
+export CHROME_SANDBOX=True
+
+# Disable sandbox (required in some Docker containers)
+export CHROME_SANDBOX=False
+# This adds --no-sandbox to Chrome args
+```
+
+### Viewport Size
+
+```bash
+# Set viewport resolution (width,height)
+export CHROME_RESOLUTION="1920,1080"
+
+# Mobile viewport
+export CHROME_RESOLUTION="375,667"
+```
+
+### Page Load Conditions
+
+```bash
+# Wait for specific condition before archiving
+export CHROME_WAIT_FOR="networkidle2"  # No network activity for 500ms (default)
+export CHROME_WAIT_FOR="networkidle0"  # No network activity for 0ms (stricter)
+export CHROME_WAIT_FOR="load"          # DOMContentLoaded + load events
+export CHROME_WAIT_FOR="domcontentloaded"  # Just DOMContentLoaded
+
+# Extra delay for JavaScript-heavy SPAs
+export CHROME_DELAY_AFTER_LOAD=2  # Wait 2 seconds after page load
+```
+
+### Custom Chrome Arguments
+
+```bash
+# Add extra Chrome flags
+export CHROME_ARGS_EXTRA='["--window-size=1920,1080", "--force-dark-mode"]'
+
+# Override all default args (advanced)
+export CHROME_ARGS='["--no-sandbox", "--disable-gpu"]'
+```
+
+## Troubleshooting
+
+### Chrome Won't Start
+
+**Problem**: Chrome plugin fails to launch browser
+
+**Solutions**:
+1. Verify Chrome/Chromium is installed: `chromium --version`
+2. Check binary path: `export CHROME_BINARY=/usr/bin/google-chrome`
+3. Disable sandbox in Docker: `export CHROME_SANDBOX=False`
+4. Kill zombie processes: `pkill -9 chrome`
+
+### CDP Connection Failed
+
+**Problem**: Plugins can't connect to Chrome session
+
+**Solutions**:
+1. Ensure chrome plugin is enabled: `export CHROME_ENABLED=True`
+2. Check if Chrome is running: `ps aux | grep chrome`
+3. Verify CDP port is accessible (usually 9222)
+4. Review chrome plugin logs
+
+### Chrome Crashes
+
+**Problem**: Browser crashes during archiving
+
+**Solutions**:
+1. Increase memory limits
+2. Reduce concurrent snapshots
+3. Disable problematic extensions
+4. Check `consolelog` output for errors
+5. Add `--disable-dev-shm-usage` to `CHROME_ARGS_EXTRA` (Docker)
+
+### Pages Not Loading
+
+**Problem**: Blank screenshots, empty DOM
+
+**Solutions**:
+1. Increase timeout: `export CHROME_PAGELOAD_TIMEOUT=120`
+2. Change wait condition: `export CHROME_WAIT_FOR="load"`
+3. Add delay: `export CHROME_DELAY_AFTER_LOAD=3`
+4. Disable extensions temporarily
+5. Check site doesn't block automation (some sites detect headless Chrome)
+
+### Extensions Not Working
+
+**Problem**: uBlock or other extensions don't load
+
+**Solutions**:
+1. Verify extension is enabled in config
+2. Check extension files are present in plugin directory
+3. Use persistent profile: `export CHROME_USER_DATA_DIR=/path/to/profile`
+4. Enable extension manually in headful mode first
+
+## Performance Optimization
+
+### Reuse Sessions
+
+Best practice: Archive multiple URLs in one command to reuse the Chrome session:
+
+```bash
+# Good - one session for all URLs
+archivebox add < urls.txt
+
+# Bad - launches Chrome for each URL
+cat urls.txt | while read url; do archivebox add "$url"; done
+```
+
+### Disable Unused Plugins
+
+Only enable Chrome plugins you need:
+
+```bash
+# Essential only
+export DOM_ENABLED=True
+export SCREENSHOT_ENABLED=True
+export PDF_ENABLED=False
+export CONSOLELOG_ENABLED=False
+export ACCESSIBILITY_ENABLED=False
+export SEO_ENABLED=False
+```
+
+### Use Lighter Wait Conditions
+
+```bash
+# Faster (but may miss content)
+export CHROME_WAIT_FOR="domcontentloaded"
+
+# Balanced (default)
+export CHROME_WAIT_FOR="networkidle2"
+
+# Slower (but more complete)
+export CHROME_WAIT_FOR="networkidle0"
+export CHROME_DELAY_AFTER_LOAD=5
+```
+
+## Chrome Plugin Development
+
+See [Custom Plugins](/plugins/custom-plugins#chrome-based-plugins) for guidance on creating Chrome-based plugins.
+
+Key requirements:
+- Use `chrome_utils.js` for all Chrome operations
+- Test both connection modes (existing session + new session)
+- Handle CDP disconnections gracefully
+- Don't depend on ArchiveBox core (plugins are isolated)
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card
+    title="Extractor Plugins"
+    icon="download"
+    href="/plugins/extractors"
+  >
+    More details on Chrome-based extractors
+  </Card>
+  <Card
+    title="Custom Plugins"
+    icon="wrench"
+    href="/plugins/custom-plugins"
+  >
+    Create your own Chrome-based plugins
+  </Card>
+</CardGroup>

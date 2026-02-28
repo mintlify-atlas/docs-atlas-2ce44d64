@@ -1,0 +1,144 @@
+---
+title: Input Formats
+description: How to import URLs into ArchiveBox from various sources
+---
+
+ArchiveBox can import URLs from many different sources and formats. You can feed URLs one at a time, schedule regular imports, or bulk import from various services.
+
+## Browser Extension
+
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px" style={{display: 'inline', verticalAlign: 'middle'}} /> **ArchiveBox Browser Extension**
+
+The [official browser extension](https://github.com/ArchiveBox/archivebox-extension) provides realtime archiving of browsing history or selected pages.
+
+- **Supported browsers**: Chrome, Chromium, Brave, Edge, Firefox
+- **Features**: Archive pages as you browse, or save selected pages on-demand
+- **Download**: [Chrome Web Store](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj)
+
+## Manual URL Import
+
+### Single URL
+
+Archive a single URL directly from the command line:
+
+```bash
+archivebox add 'https://example.com/some/page'
+```
+
+### Multiple URLs from stdin
+
+Pipe URLs from stdin:
+
+```bash
+echo 'http://example.com' | archivebox add
+
+# Or multiple URLs
+cat << EOF | archivebox add
+https://news.ycombinator.com
+https://example.com/article
+EOF
+```
+
+**Docker users**: Add `-i` flag when piping stdin:
+
+```bash
+echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
+```
+
+**Docker Compose users**: Add `-T` flag when piping stdin:
+
+```bash
+echo 'https://example.com' | docker compose run -T archivebox add
+```
+
+### Import from Files
+
+ArchiveBox supports importing URLs from any text-based format:
+
+```bash
+# Generic text file with URLs
+archivebox add < ~/Downloads/urls.txt
+
+# RSS feed
+archivebox add --parser=generic_rss < ~/Downloads/feed.xml
+
+# With recursion depth
+archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
+```
+
+### Extract URLs from HTML/Markdown
+
+ArchiveBox automatically extracts URLs from any text format:
+
+```bash
+echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add
+```
+
+## Browser Bookmarks & History
+
+Export bookmarks or history from your browser in Netscape bookmark format:
+
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px" style={{display: 'inline', verticalAlign: 'middle'}} /> **Browser Export Instructions**:
+
+- **Chrome**: [Export bookmarks](https://support.google.com/chrome/answer/96816?hl=en)
+- **Firefox**: [Export bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer)
+- **Safari**: [Export bookmarks](https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a)
+- **Internet Explorer**: [Export favorites](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
+- **Opera**: [Export bookmarks](https://help.opera.com/en/latest/features/#bookmarks)
+
+After exporting, import into ArchiveBox:
+
+```bash
+archivebox add < ~/Downloads/bookmarks.html
+```
+
+## Bookmarking Services & Social Media
+
+<img src="https://getpocket.com/favicon.ico" height="22px" style={{display: 'inline', verticalAlign: 'middle'}} /> **Import from popular services**:
+
+### Pocket
+
+1. Export from [getpocket.com/export](https://getpocket.com/export)
+2. Import: `archivebox add < pocket_export.html`
+
+### Pinboard
+
+1. Export from [pinboard.in/export](https://pinboard.in/export/)
+2. Import: `archivebox add < pinboard_export.json`
+
+### Other Services
+
+- **Instapaper**: [Export guide](https://www.instapaper.com/user)
+- **Shaarli**: [Import/Export docs](https://shaarli.readthedocs.io/en/master/Usage/#importexport)
+- **Delicious**: [Export bookmarks](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/)
+- **Reddit Saved**: Use [export-saved-reddit](https://github.com/csu/export-saved-reddit)
+- **Wallabag**: [Import docs](https://doc.wallabag.org/en/user/import/wallabagv2.html)
+- **Unmark.it**: [Import/export](http://help.unmark.it/import-export)
+- **OneTab**: [Save/restore guide](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/)
+- **Firefox Sync**: [Issue #648](https://github.com/ArchiveBox/ArchiveBox/issues/648)
+
+## MITM Proxy Integration
+
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px" style={{display: 'inline', verticalAlign: 'middle'}} /> **Real-time archiving via proxy**
+
+Use [archivebox-proxy](https://github.com/ArchiveBox/archivebox-proxy) with [mitmproxy](https://mitmproxy.org/) to automatically archive all traffic from any device going through the proxy.
+
+This provides [realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all HTTP/HTTPS requests.
+
+## Supported File Formats
+
+ArchiveBox can parse URLs from:
+
+- **Plain text** (`.txt`) - one URL per line
+- **JSON** - various formats with URL fields
+- **CSV** - columns containing URLs
+- **RSS/Atom feeds** (`.xml`, `.rss`)
+- **HTML bookmarks** (Netscape format)
+- **Markdown** - extracts links from `[text](url)` format
+- **SQL exports** - extracts URLs from database dumps
+
+## See Also
+
+- [Scheduled Archiving](/features/scheduled-archiving) - Set up automatic imports
+- [Personas](/features/personas) - Archive logged-in content
+- [Output Formats](/features/output-formats) - What gets saved

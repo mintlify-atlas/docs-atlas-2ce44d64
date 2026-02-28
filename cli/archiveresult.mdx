@@ -1,0 +1,264 @@
+---
+title: 'archivebox archiveresult'
+description: 'Manage ArchiveResult records - plugin extraction results'
+icon: 'puzzle-piece'
+---
+
+## Overview
+
+The `archivebox archiveresult` command manages ArchiveResult records in ArchiveBox. An ArchiveResult represents the result of running a single plugin/extractor on a Snapshot (e.g., screenshot, PDF, singlefile).
+
+## Model Purpose
+
+**ArchiveResult** - The result of a plugin extraction for a Snapshot. Each ArchiveResult:
+- Represents one plugin's output for one Snapshot
+- Tracks extraction status (queued, started, succeeded, failed, skipped, backoff)
+- Stores output path, command used, exit code
+- Records timing information (start_ts, end_ts)
+- Can be retried independently
+
+## Subcommands
+
+### create
+
+Create ArchiveResults for Snapshots (queue extractions).
+
+```bash
+archivebox archiveresult create [options]
+```
+
+**Options:**
+- `--snapshot-id` - Specific snapshot ID to create results for
+- `--plugin`, `-p` - Plugin name (e.g., screenshot, singlefile)
+- `--status`, `-s` - Initial status (default: queued)
+
+**Examples:**
+
+```bash
+# Create all pending ArchiveResults for snapshots
+archivebox snapshot list --status=queued \
+  | archivebox archiveresult create
+
+# Create screenshot result for specific snapshot
+archivebox archiveresult create \
+  --snapshot-id=01JH... \
+  --plugin=screenshot
+
+# Queue PDF generation for all snapshots
+archivebox snapshot list \
+  | archivebox archiveresult create --plugin=pdf
+
+# Pipeline: create results and run them
+archivebox snapshot list --tag=important \
+  | archivebox archiveresult create --plugin=screenshot \
+  | archivebox run
+```
+
+### list
+
+List ArchiveResults with optional filters.
+
+```bash
+archivebox archiveresult list [options]
+```
+
+**Options:**
+- `--status`, `-s` - Filter by status (queued, started, succeeded, failed, skipped, backoff)
+- `--plugin`, `-p` - Filter by plugin name
+- `--snapshot-id` - Filter by snapshot ID
+- `--limit`, `-n` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all archive results
+archivebox archiveresult list
+
+# List failed extractions
+archivebox archiveresult list --status=failed
+
+# List screenshot results
+archivebox archiveresult list --plugin=screenshot
+
+# List results for specific snapshot
+archivebox archiveresult list --snapshot-id=01JH...
+
+# Combine filters
+archivebox archiveresult list \
+  --plugin=screenshot \
+  --status=failed
+```
+
+### update
+
+Update ArchiveResults from stdin JSONL.
+
+```bash
+archivebox archiveresult list [filters] | archivebox archiveresult update [options]
+```
+
+**Options:**
+- `--status`, `-s` - Set status
+
+**Examples:**
+
+```bash
+# Retry failed extractions
+archivebox archiveresult list --status=failed \
+  | archivebox archiveresult update --status=queued
+
+# Retry failed screenshots
+archivebox archiveresult list \
+  --plugin=screenshot \
+  --status=failed \
+  | archivebox archiveresult update --status=queued
+```
+
+### delete
+
+Delete ArchiveResults from stdin JSONL.
+
+```bash
+archivebox archiveresult list [filters] | archivebox archiveresult delete [options]
+```
+
+**Options:**
+- `--yes`, `-y` - Confirm deletion (required)
+- `--dry-run` - Show what would be deleted without deleting
+
+**Examples:**
+
+```bash
+# Preview deletion
+archivebox archiveresult list --plugin=singlefile \
+  | archivebox archiveresult delete --dry-run
+
+# Delete old singlefile results
+archivebox archiveresult list --plugin=singlefile \
+  | archivebox archiveresult delete --yes
+```
+
+## Common Use Cases
+
+### Retry Failed Extractions
+
+Find and retry failed plugin extractions:
+
+```bash
+# List all failures
+archivebox archiveresult list --status=failed
+
+# Retry all failed extractions
+archivebox archiveresult list --status=failed \
+  | archivebox archiveresult update --status=queued \
+  | archivebox run
+
+# Retry specific plugin failures
+archivebox archiveresult list \
+  --plugin=pdf \
+  --status=failed \
+  | archivebox archiveresult update --status=queued \
+  | archivebox run
+```
+
+### Selective Re-extraction
+
+Re-run specific extractors on snapshots:
+
+```bash
+# Re-generate all screenshots
+archivebox snapshot list \
+  | archivebox archiveresult create --plugin=screenshot \
+  | archivebox run
+
+# Re-extract DOM for important snapshots
+archivebox snapshot list --tag=important \
+  | archivebox archiveresult create --plugin=dom \
+  | archivebox run
+```
+
+### Monitor Extraction Status
+
+Check the status of ongoing extractions:
+
+```bash
+# List in-progress extractions
+archivebox archiveresult list --status=started
+
+# Count results by status
+archivebox archiveresult list --status=succeeded | wc -l
+archivebox archiveresult list --status=failed | wc -l
+
+# Check specific plugin success rate
+archivebox archiveresult list --plugin=screenshot --status=succeeded
+archivebox archiveresult list --plugin=screenshot --status=failed
+```
+
+### Clean Up Old Results
+
+Remove outdated extraction results:
+
+```bash
+# Preview cleanup
+archivebox archiveresult list --plugin=obsolete_plugin \
+  | archivebox archiveresult delete --dry-run
+
+# Delete old results
+archivebox archiveresult list --plugin=obsolete_plugin \
+  | archivebox archiveresult delete --yes
+```
+
+### Plugin-Specific Workflows
+
+Work with specific extractors:
+
+```bash
+# Queue all missing screenshots
+archivebox snapshot list --status=sealed \
+  | archivebox archiveresult create --plugin=screenshot \
+  | archivebox run
+
+# Retry failed PDF generation with fresh queue
+archivebox archiveresult list \
+  --plugin=pdf \
+  --status=failed \
+  | archivebox archiveresult delete --yes
+
+archivebox snapshot list \
+  | archivebox archiveresult create --plugin=pdf \
+  | archivebox run
+```
+
+## Status Values
+
+- **queued** - Extraction is waiting to run
+- **started** - Extraction is currently running
+- **succeeded** - Extraction completed successfully
+- **failed** - Extraction failed (will retry)
+- **skipped** - Extraction was skipped (dependencies missing, etc.)
+- **backoff** - Extraction failed and is in exponential backoff
+
+## JSONL Format
+
+ArchiveResults are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "type": "archiveresult",
+  "id": "01JH...",
+  "snapshot_id": "01JH...",
+  "plugin": "screenshot",
+  "status": "succeeded",
+  "output_path": "screenshot.png",
+  "start_ts": "2024-02-28T10:00:00Z",
+  "end_ts": "2024-02-28T10:00:05Z",
+  "cmd_version": "Chrome 120.0",
+  "exit_code": 0
+}
+```
+
+## See Also
+
+- [archivebox snapshot](/cli/snapshot) - Manage Snapshots that have ArchiveResults
+- [archivebox run](/usage/cli#run) - Execute queued extractions
+- [Plugins](/plugins/overview) - Learn about available extractors

@@ -1,0 +1,281 @@
+---
+title: API Authentication
+description: How to authenticate with the ArchiveBox REST API
+---
+
+## Overview
+
+The ArchiveBox API supports multiple authentication methods. All API endpoints require authentication, and **only superuser accounts can access the API**.
+
+## Authentication Methods
+
+ArchiveBox supports the following authentication methods:
+
+1. **API Key Header** (recommended)
+2. **Bearer Token**
+3. **Query Parameter Token**
+4. **HTTP Basic Authentication** (not recommended)
+5. **Django Session** (browser-based)
+
+<Warning>
+Only users with `is_superuser=True` can access the API. Regular users will receive a 403 Forbidden error even with valid credentials.
+</Warning>
+
+## Generating an API Token
+
+### Via Web UI
+
+1. Log in to your ArchiveBox admin interface: `/admin/`
+2. Navigate to **API** → **API Keys**
+3. Your existing API key will be displayed, or create a new one
+
+### Via API Endpoint
+
+Generate a token using username and password:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/get_api_token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-username",
+    "password": "your-password"
+  }'
+```
+
+Response:
+```json
+{
+  "id": "01234567-89ab-cdef-0123-456789abcdef",
+  "token": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+  "created_at": "2024-01-15T10:30:00Z",
+  "expires": "2024-02-14T10:30:00Z",
+  "created_by_id": "1"
+}
+```
+
+<Note>
+API tokens expire after 30 days by default. If a valid non-expired token exists, the same token will be returned instead of creating a new one.
+</Note>
+
+### Via CLI
+
+You can also generate tokens using the Django admin shell:
+
+```bash
+archivebox shell
+```
+
+```python
+from archivebox.api.models import APIToken
+from django.contrib.auth import get_user_model
+from datetime import timedelta
+from django.utils import timezone
+
+User = get_user_model()
+user = User.objects.get(username='your-username')
+
+token = APIToken.objects.create(
+    created_by=user,
+    expires=timezone.now() + timedelta(days=30)
+)
+print(f"Token: {token.token}")
+```
+
+## Using Authentication
+
+### Method 1: API Key Header (Recommended)
+
+Pass the token in the `X-ArchiveBox-API-Key` header:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/core/snapshots \
+  -H "X-ArchiveBox-API-Key: a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+```
+
+### Method 2: Bearer Token
+
+Use standard Bearer token authentication:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/core/snapshots \
+  -H "Authorization: Bearer a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+```
+
+### Method 3: Query Parameter
+
+Pass the token as a query parameter (useful for webhooks):
+
+```bash
+curl http://127.0.0.1:8000/api/v1/core/snapshots?api_key=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+```
+
+<Warning>
+Query parameter authentication exposes tokens in URLs. Use header-based authentication when possible.
+</Warning>
+
+### Method 4: HTTP Basic Auth
+
+Use username and password with HTTP Basic Authentication:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/core/snapshots \
+  -u "username:password"
+```
+
+<Warning>
+Basic authentication sends credentials with every request. Use token-based authentication instead.
+</Warning>
+
+### Method 5: Django Session (Browser)
+
+If you're making API calls from the same domain where you're logged into the admin interface, Django session cookies will be used automatically.
+
+```javascript
+// In browser JavaScript
+fetch('/api/v1/core/snapshots', {
+  credentials: 'same-origin'
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+## Validating a Token
+
+Check if a token is valid and non-expired:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/check_api_token \
+  -H "Content-Type: application/json" \
+  -d '{"token": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"}'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "user_id": "1"
+}
+```
+
+## Token Management
+
+### Viewing Tokens
+
+List all API tokens in the admin interface:
+
+```
+http://127.0.0.1:8000/admin/api/apitoken/
+```
+
+### Token Expiration
+
+API tokens include an expiration date. The token validation automatically checks:
+- Token exists in database
+- Token has not expired
+- Associated user is still active and has superuser permissions
+
+### Revoking Tokens
+
+To revoke a token:
+
+1. **Via Admin UI**: Go to `/admin/api/apitoken/` and delete the token
+2. **Via CLI**:
+   ```bash
+   archivebox shell
+   ```
+   ```python
+   from archivebox.api.models import APIToken
+   APIToken.objects.filter(token='a1b2c3d4...').delete()
+   ```
+
+## Response Headers
+
+API responses include authentication information in headers:
+
+```http
+X-ArchiveBox-Auth-Method: HeaderTokenAuth
+X-ArchiveBox-Auth-Expires: 2024-02-14T10:30:00Z
+X-ArchiveBox-Auth-Token-Id: 01234567-89ab-cdef-0123-456789abcdef
+X-ArchiveBox-Auth-User-Id: 1
+X-ArchiveBox-Auth-User-Username: admin
+```
+
+## Security Considerations
+
+<Warning>
+**Best Practices:**
+
+- Store API tokens securely (environment variables, secrets management)
+- Use HTTPS in production to protect tokens in transit
+- Rotate tokens regularly (regenerate every 30 days)
+- Never commit tokens to version control
+- Use header-based authentication over query parameters
+- Monitor token usage via response headers
+</Warning>
+
+## Common Errors
+
+### 403 Forbidden - Not Superuser
+
+```json
+{
+  "succeeded": false,
+  "message": "Valid API token but User does not have permission (make sure user.is_superuser=True)"
+}
+```
+
+**Solution**: Ensure the user account has `is_superuser=True`:
+
+```bash
+archivebox manage createsuperuser
+# Or promote existing user:
+archivebox shell
+```
+```python
+from django.contrib.auth import get_user_model
+User = get_user_model()
+user = User.objects.get(username='your-username')
+user.is_superuser = True
+user.save()
+```
+
+### Invalid or Expired Token
+
+```json
+{
+  "success": false,
+  "user_id": null
+}
+```
+
+**Solution**: Generate a new token using the `/api/v1/auth/get_api_token` endpoint.
+
+## Example: Complete Workflow
+
+```bash
+# 1. Generate a token
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/api/v1/auth/get_api_token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-password"}' \
+  | jq -r '.token')
+
+# 2. Use the token to make API calls
+curl http://127.0.0.1:8000/api/v1/core/snapshots \
+  -H "X-ArchiveBox-API-Key: $TOKEN"
+
+# 3. Validate the token
+curl -X POST http://127.0.0.1:8000/api/v1/auth/check_api_token \
+  -H "Content-Type: application/json" \
+  -d "{\"token\":\"$TOKEN\"}"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Snapshots API" icon="camera" href="/api/snapshots">
+    Start archiving URLs via API
+  </Card>
+  <Card title="Crawls API" icon="spider" href="/api/crawls">
+    Manage crawl sessions
+  </Card>
+</CardGroup>

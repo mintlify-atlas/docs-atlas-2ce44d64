@@ -1,0 +1,292 @@
+---
+title: 'APT Installation'
+description: 'Install ArchiveBox on Ubuntu/Debian using APT'
+icon: 'ubuntu'
+---
+
+Install ArchiveBox using the APT package manager on Ubuntu, Debian, and related distributions.
+
+<Note>
+The APT package may lag behind the official pip package. After installing with APT, we recommend upgrading with pip to get the latest version.
+</Note>
+
+## Prerequisites
+
+- **Supported Systems**: Ubuntu, Debian, Linux Mint, Pop!_OS, and other Debian-based distributions
+- **Python**: Version 3.10 or higher
+- **Node.js**: Version 18 or higher
+
+## Installation
+
+<Steps>
+  <Step title="Follow the Bare Metal Installation Guide">
+    The detailed APT installation instructions are maintained in the Bare Metal Setup wiki page:
+    
+    <Card title="Bare Metal Setup Wiki" icon="book" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">
+      Follow the complete APT installation instructions →
+    </Card>
+  </Step>
+
+  <Step title="Upgrade to latest version (recommended)">
+    After installing with APT, upgrade to the latest version using pip:
+    
+    ```bash
+    # Update to newest version
+    pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+    
+    # Install Chromium and system dependencies
+    playwright install --with-deps chromium
+    
+    # Verify installation
+    archivebox version
+    ```
+    
+    <Note>
+    The APT package sometimes falls behind the latest release. Using pip ensures you have the most recent version.
+    </Note>
+  </Step>
+
+  <Step title="Create a data directory">
+    Create a directory for your ArchiveBox collection:
+    
+    ```bash
+    mkdir -p ~/archivebox/data && cd ~/archivebox/data
+    ```
+  </Step>
+
+  <Step title="Initialize ArchiveBox">
+    Initialize your collection:
+    
+    ```bash
+    archivebox init --setup
+    ```
+  </Step>
+
+  <Step title="Start the server (optional)">
+    Launch the web interface:
+    
+    ```bash
+    archivebox server 0.0.0.0:8000
+    ```
+    
+    Access at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+  </Step>
+</Steps>
+
+## Quick Install Commands
+
+While the full instructions are in the wiki, here's a typical installation flow:
+
+```bash
+# Install ArchiveBox from APT (if available)
+sudo apt update
+sudo apt install archivebox
+
+# Or install Python, Node, and use pip
+sudo apt install python3 python3-pip nodejs npm curl wget git ripgrep
+pip3 install archivebox yt-dlp playwright
+playwright install --with-deps chromium
+
+# Create and initialize data directory
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
+archivebox init --setup
+
+# Check installation
+archivebox version
+```
+
+## Usage
+
+### Adding URLs
+
+```bash
+# Add a single URL
+archivebox add 'https://example.com'
+
+# Add with depth-1 crawling
+archivebox add --depth=1 'https://news.ycombinator.com'
+```
+
+### Common Commands
+
+```bash
+# View help
+archivebox help
+
+# Check version and dependencies
+archivebox version
+
+# List all snapshots
+archivebox list
+
+# Check archive status
+archivebox status
+```
+
+## Configuration
+
+Configure ArchiveBox using:
+
+```bash
+# View all configuration
+archivebox config
+
+# Set a value
+archivebox config --set TIMEOUT=120
+
+# Get a specific value
+archivebox config --get CHROME_BINARY
+```
+
+## System Dependencies
+
+Install recommended system dependencies:
+
+```bash
+sudo apt install \
+  python3 python3-pip \
+  nodejs npm \
+  curl wget git ripgrep \
+  chromium-browser
+```
+
+## Updating
+
+### Update APT Package
+
+```bash
+sudo apt update
+sudo apt upgrade archivebox
+```
+
+### Update pip Version
+
+If you upgraded to the pip version, update it:
+
+```bash
+# Upgrade ArchiveBox
+pip3 install --upgrade archivebox yt-dlp playwright
+
+# Update Playwright Chromium
+playwright install --with-deps chromium
+
+# Run migrations
+cd ~/archivebox/data
+archivebox init
+```
+
+## Troubleshooting
+
+### Command Not Found
+
+If `archivebox` command is not found after pip installation:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
+
+# Reload shell
+source ~/.bashrc
+```
+
+### Permission Errors
+
+<Warning>
+Never run ArchiveBox as root. It will refuse to run for security reasons.
+</Warning>
+
+Ensure you're running as a regular user:
+
+```bash
+whoami  # Should not be 'root'
+```
+
+### Missing Dependencies
+
+Check which dependencies are missing:
+
+```bash
+archivebox version
+```
+
+Install any missing packages:
+
+```bash
+sudo apt install curl wget git ripgrep chromium-browser
+```
+
+### Python Version Too Old
+
+If your Python version is too old:
+
+```bash
+# Check current version
+python3 --version
+
+# Install newer Python (Ubuntu 20.04+)
+sudo apt install python3.11 python3.11-pip
+
+# Use the newer version
+python3.11 -m pip install archivebox
+```
+
+### Chromium Issues
+
+If Playwright Chromium isn't working:
+
+```bash
+# Install system Chromium
+sudo apt install chromium-browser
+
+# Configure ArchiveBox to use it
+archivebox config --set CHROME_BINARY=/usr/bin/chromium-browser
+```
+
+### Node.js Version Too Old
+
+Install a newer Node.js version:
+
+```bash
+# Install NodeSource repository for latest Node.js
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install nodejs
+
+# Verify version
+node --version
+```
+
+## APT Package Details
+
+For more information about the Debian/Ubuntu package:
+
+- Repository: [debian-archivebox](https://github.com/ArchiveBox/debian-archivebox)
+- Package maintainers: ArchiveBox team
+- Update frequency: May lag behind pip releases
+
+<Tip>
+For the absolute latest features and bug fixes, use the pip installation method or Docker instead.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Import URLs" icon="file-import" href="/usage/import">
+    Learn how to import bookmarks and URLs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize ArchiveBox settings
+  </Card>
+  <Card title="Web UI" icon="browser" href="/usage/web-ui">
+    Use the web interface
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Master the command-line interface
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+- [Bare Metal Installation Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup)
+- [debian-archivebox Repository](https://github.com/ArchiveBox/debian-archivebox)
+- [Troubleshooting Guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing)
+- [Chromium Installation](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)

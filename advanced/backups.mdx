@@ -1,0 +1,455 @@
+---
+title: Backups & Restore
+description: How to backup and restore your ArchiveBox archive
+---
+
+Backing up your ArchiveBox archive ensures you don't lose your preserved web content. This guide covers backup strategies and restoration procedures.
+
+## What to Backup
+
+Your ArchiveBox data directory contains:
+
+```
+DATA_DIR/
+├── index.sqlite3              # Database (metadata)
+├── ArchiveBox.conf            # Configuration
+├── archive/                   # Actual archived content
+│   └── {snapshot-id}/         # Per-snapshot folders
+├── personas/                  # Browser cookies/sessions (sensitive!)
+├── logs/                      # Application logs
+└── cache/                     # Temporary data (optional)
+```
+
+<Info>
+The most critical components are:
+1. **index.sqlite3** - Contains all metadata
+2. **archive/** - Contains all archived content
+3. **ArchiveBox.conf** - Your configuration
+</Info>
+
+## Quick Backup
+
+### Full Backup (Recommended)
+
+```bash
+# Stop ArchiveBox first
+pkill -f archivebox  # or docker compose down
+
+# Backup entire data directory
+tar -czf archivebox-backup-$(date +%Y%m%d).tar.gz ~/archivebox/data/
+
+# Verify backup
+tar -tzf archivebox-backup-$(date +%Y%m%d).tar.gz | head
+```
+
+### Database-Only Backup
+
+For quick metadata backups:
+
+```bash
+# SQLite backup (safe even while running)
+sqlite3 ~/archivebox/data/index.sqlite3 ".backup ~/archivebox/backups/index-$(date +%Y%m%d).sqlite3"
+
+# Or simple copy (stop ArchiveBox first)
+cp ~/archivebox/data/index.sqlite3 ~/archivebox/backups/index-$(date +%Y%m%d).sqlite3
+```
+
+## Backup Strategies
+
+### Strategy 1: Manual Periodic Backups
+
+Best for: Small archives, infrequent changes
+
+```bash
+#!/bin/bash
+# backup-archivebox.sh
+
+BACKUP_DIR="$HOME/archivebox-backups"
+DATA_DIR="$HOME/archivebox/data"
+DATE=$(date +%Y%m%d-%H%M%S)
+
+mkdir -p "$BACKUP_DIR"
+
+# Full backup
+tar -czf "$BACKUP_DIR/archivebox-full-$DATE.tar.gz" "$DATA_DIR"
+
+# Keep only last 7 backups
+ls -t "$BACKUP_DIR"/*.tar.gz | tail -n +8 | xargs rm -f
+
+echo "Backup complete: archivebox-full-$DATE.tar.gz"
+```
+
+Run manually or with cron:
+```bash
+# Add to crontab (backup daily at 2 AM)
+crontab -e
+0 2 * * * /home/user/backup-archivebox.sh
+```
+
+### Strategy 2: Incremental Backups
+
+Best for: Large archives, daily changes
+
+Use rsync for incremental backups:
+
+```bash
+#!/bin/bash
+# incremental-backup.sh
+
+SOURCE="$HOME/archivebox/data/"
+DEST="/mnt/backup/archivebox/"
+DATE=$(date +%Y%m%d)
+
+# Create today's backup linked to yesterday's
+rsync -av --link-dest="$DEST/latest" "$SOURCE" "$DEST/$DATE/"
+
+# Update 'latest' symlink
+rm -f "$DEST/latest"
+ln -s "$DATE" "$DEST/latest"
+
+echo "Incremental backup complete: $DATE"
+```
+
+This creates space-efficient backups where unchanged files are hard-linked.
+
+### Strategy 3: Cloud Backup
+
+Best for: Off-site disaster recovery
+
+**Using rclone** (supports S3, GCS, Dropbox, etc.):
+
+```bash
+# Install rclone
+curl https://rclone.org/install.sh | sudo bash
+
+# Configure remote (interactive)
+rclone config
+
+# Backup to cloud
+rclone sync ~/archivebox/data/ remote:archivebox-backup/ \
+  --progress \
+  --exclude "cache/**" \
+  --exclude "logs/**"
+
+# Or create archive and upload
+tar -czf - ~/archivebox/data/ | rclone rcat remote:backups/archivebox-$(date +%Y%m%d).tar.gz
+```
+
+**Using S3 directly**:
+```bash
+# Install AWS CLI
+pip install awscli
+
+# Configure credentials
+aws configure
+
+# Sync to S3
+aws s3 sync ~/archivebox/data/ s3://my-bucket/archivebox-backup/ \
+  --exclude "cache/*" \
+  --exclude "logs/*"
+```
+
+### Strategy 4: Docker Volume Backup
+
+For Docker setups:
+
+```bash
+# Stop container
+docker compose down
+
+# Backup volume
+docker run --rm \
+  -v archivebox_data:/data \
+  -v $(pwd):/backup \
+  alpine tar -czf /backup/archivebox-backup-$(date +%Y%m%d).tar.gz -C /data .
+
+# Restart
+docker compose up -d
+```
+
+Or backup the mounted directory directly:
+```bash
+# If using bind mount
+tar -czf archivebox-backup-$(date +%Y%m%d).tar.gz ./data/
+```
+
+## Encrypted Backups
+
+For sensitive content:
+
+### GPG Encryption
+
+```bash
+# Create encrypted backup
+tar -czf - ~/archivebox/data/ | gpg -c > archivebox-backup-$(date +%Y%m%d).tar.gz.gpg
+
+# Restore
+gpg -d archivebox-backup-20260228.tar.gz.gpg | tar -xzf -
+```
+
+### Age Encryption (Modern Alternative)
+
+```bash
+# Install age
+sudo apt install age  # or brew install age
+
+# Generate key (once)
+age-keygen -o archivebox-backup.key
+# Save the public key it displays
+
+# Encrypt backup
+tar -czf - ~/archivebox/data/ | age -r age1xxxxxxxxx > archivebox-backup-$(date +%Y%m%d).tar.gz.age
+
+# Decrypt
+age -d -i archivebox-backup.key archivebox-backup-20260228.tar.gz.age | tar -xzf -
+```
+
+## Automated Backup Script
+
+Comprehensive backup script:
+
+```bash
+#!/bin/bash
+# archivebox-backup.sh - Full featured backup script
+
+set -e  # Exit on error
+
+# Configuration
+DATA_DIR="$HOME/archivebox/data"
+BACKUP_DIR="$HOME/archivebox-backups"
+RETENTION_DAYS=30
+ENCRYPT=true  # Set to false to disable encryption
+GPG_RECIPIENT="your-email@example.com"  # For GPG encryption
+
+# Create backup directory
+mkdir -p "$BACKUP_DIR"
+
+# Generate filename
+DATE=$(date +%Y%m%d-%H%M%S)
+BACKUP_FILE="archivebox-backup-$DATE.tar.gz"
+
+echo "[$(date)] Starting backup..."
+
+# Create backup
+if [ "$ENCRYPT" = true ]; then
+    echo "Creating encrypted backup..."
+    tar -czf - "$DATA_DIR" | gpg -e -r "$GPG_RECIPIENT" > "$BACKUP_DIR/$BACKUP_FILE.gpg"
+    BACKUP_FILE="$BACKUP_FILE.gpg"
+else
+    echo "Creating unencrypted backup..."
+    tar -czf "$BACKUP_DIR/$BACKUP_FILE" "$DATA_DIR"
+fi
+
+echo "Backup created: $BACKUP_FILE"
+
+# Calculate size
+SIZE=$(du -h "$BACKUP_DIR/$BACKUP_FILE" | cut -f1)
+echo "Backup size: $SIZE"
+
+# Clean old backups
+echo "Cleaning backups older than $RETENTION_DAYS days..."
+find "$BACKUP_DIR" -name "archivebox-backup-*" -mtime +$RETENTION_DAYS -delete
+
+# Optional: Upload to cloud
+if command -v rclone &> /dev/null; then
+    echo "Uploading to cloud..."
+    rclone copy "$BACKUP_DIR/$BACKUP_FILE" remote:archivebox-backups/
+fi
+
+echo "[$(date)] Backup complete!"
+```
+
+Make it executable and add to cron:
+```bash
+chmod +x archivebox-backup.sh
+
+# Backup daily at 3 AM
+crontab -e
+0 3 * * * /home/user/archivebox-backup.sh >> /home/user/backup.log 2>&1
+```
+
+## Restoring from Backup
+
+### Full Restore
+
+```bash
+# Stop ArchiveBox
+pkill -f archivebox  # or docker compose down
+
+# Backup current state (just in case)
+mv ~/archivebox/data ~/archivebox/data.old
+
+# Extract backup
+mkdir -p ~/archivebox/data
+tar -xzf archivebox-backup-20260228.tar.gz -C ~/
+
+# Or if encrypted
+gpg -d archivebox-backup-20260228.tar.gz.gpg | tar -xzf - -C ~/
+
+# Restart ArchiveBox
+archivebox server  # or docker compose up -d
+```
+
+### Database-Only Restore
+
+If you only need to restore the database:
+
+```bash
+# Stop ArchiveBox
+pkill -f archivebox
+
+# Backup current database
+cp ~/archivebox/data/index.sqlite3 ~/archivebox/data/index.sqlite3.backup
+
+# Restore from backup
+cp ~/archivebox/backups/index-20260228.sqlite3 ~/archivebox/data/index.sqlite3
+
+# Restart ArchiveBox
+archivebox server
+```
+
+### Selective Restore
+
+Restore specific snapshots:
+
+```bash
+# Extract specific snapshot from backup
+tar -xzf archivebox-backup-20260228.tar.gz \
+  --strip-components=3 \
+  "home/user/archivebox/data/archive/snapshot-id-here/"
+
+# Move to archive
+mv snapshot-id-here ~/archivebox/data/archive/
+
+# Update database (if needed)
+archivebox init  # Re-indexes
+```
+
+## Testing Backups
+
+Regularly verify your backups work:
+
+```bash
+# Create test restore directory
+mkdir -p /tmp/archivebox-restore-test
+
+# Extract backup
+tar -xzf archivebox-backup-20260228.tar.gz -C /tmp/archivebox-restore-test
+
+# Verify database integrity
+sqlite3 /tmp/archivebox-restore-test/data/index.sqlite3 "PRAGMA integrity_check;"
+
+# Check snapshot count
+cd /tmp/archivebox-restore-test/data
+archivebox list | wc -l
+
+# Clean up
+rm -rf /tmp/archivebox-restore-test
+```
+
+## Data Portability
+
+ArchiveBox archives are fully portable:
+
+### Moving to Another System
+
+```bash
+# On old system
+tar -czf archivebox-export.tar.gz ~/archivebox/data/
+
+# Transfer file (scp, USB, cloud, etc.)
+scp archivebox-export.tar.gz user@newserver:~/
+
+# On new system
+tar -xzf archivebox-export.tar.gz
+cd archivebox/data
+archivebox init  # Will run any needed migrations
+```
+
+### Sharing Archives
+
+To share with others:
+
+```bash
+# Export without sensitive data
+tar -czf archivebox-public.tar.gz ~/archivebox/data/ \
+  --exclude="personas/*" \
+  --exclude="logs/*" \
+  --exclude="cache/*"
+```
+
+<Warning>
+Never share your `personas/` directory - it contains plaintext cookies and credentials!
+</Warning>
+
+## Backup Best Practices
+
+### The 3-2-1 Rule
+
+- **3** copies of your data
+- **2** different storage media
+- **1** off-site backup
+
+Example implementation:
+1. **Original**: Running ArchiveBox instance
+2. **Local**: Daily backups to external HDD
+3. **Off-site**: Weekly backups to cloud storage
+
+### Checklist
+
+- [ ] Automated backups scheduled
+- [ ] Backups encrypted (for sensitive content)
+- [ ] Off-site backup exists
+- [ ] Tested restore procedure
+- [ ] Documented restore process
+- [ ] Old backups automatically cleaned
+- [ ] Backup monitoring/alerts
+- [ ] Backup size monitored (disk space)
+
+### Monitoring
+
+Check backup health:
+
+```bash
+# List recent backups
+ls -lht ~/archivebox-backups/ | head
+
+# Check backup sizes
+du -sh ~/archivebox-backups/*
+
+# Verify latest backup
+tar -tzf ~/archivebox-backups/archivebox-backup-*.tar.gz | head
+```
+
+Set up alerts (example with healthchecks.io):
+```bash
+# Add to backup script
+curl https://hc-ping.com/your-uuid-here
+```
+
+## Disaster Recovery
+
+Full disaster recovery plan:
+
+1. **Detect**: Monitor backups, notice failure
+2. **Acquire**: Get latest backup from safe location
+3. **Provision**: Set up fresh ArchiveBox installation
+4. **Restore**: Extract backup to new system
+5. **Verify**: Check integrity and snapshot count
+6. **Resume**: Continue normal operation
+
+**Recovery Time Objective (RTO)**:
+- Small archive (&lt;10GB): ~30 minutes
+- Medium archive (10-100GB): ~2 hours
+- Large archive (&gt;100GB): ~1 day
+
+**Recovery Point Objective (RPO)**:
+- Daily backups: Lose up to 24h of data
+- Hourly backups: Lose up to 1h of data
+
+## Related Documentation
+
+- [Upgrading](/advanced/upgrading) - Backup before upgrading
+- [Security](/advanced/security) - Encrypt sensitive backups
+- [Troubleshooting](/advanced/troubleshooting) - Restore from backup when things go wrong
+- [Data Model](/advanced/data-model) - Understanding what you're backing up

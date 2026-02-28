@@ -1,0 +1,381 @@
+---
+title: archivebox add
+description: Add new URLs to your archive with recursive crawling support
+---
+
+The `add` command imports URLs into your archive and starts the archiving process. It supports single URLs, lists, feeds, and recursive crawling.
+
+## Basic Usage
+
+```bash
+archivebox add 'https://example.com'
+```
+
+```bash docker
+docker compose run archivebox add 'https://example.com'
+```
+
+## How It Works
+
+1. **Save URLs** - Writes URLs to `sources/YYYY-MM-DD__HH-MM-SS__cli_add.txt`
+2. **Create Crawl** - Creates a Crawl record with max_depth and configuration
+3. **Create Snapshots** - Orchestrator creates Snapshot for each URL (depth=0)
+4. **Run Extractors** - Executes all configured plugins (screenshot, PDF, etc.)
+5. **Parse URLs** - Parser plugins extract outlinks from archived content
+6. **Recursive Crawl** - Discovered URLs become child Snapshots (depth+1)
+7. **Repeat** - Process continues until max_depth is reached
+
+## Options
+
+### `--depth`, `-d`
+
+Recursively archive linked pages up to N hops away.
+
+```bash
+archivebox add --depth=1 'https://example.com'
+```
+
+**Values:**
+- `0` - Only archive the provided URL (default)
+- `1` - Archive URL and all pages it links to
+- `2` - Archive 2 hops away (URL → links → their links)
+- `3`, `4` - Deeper recursion (use with caution)
+
+<Warning>
+  Higher depth values can archive thousands of pages. Use `--depth=1` initially to test scope.
+</Warning>
+
+### `--tag`, `-t`
+
+Comma-separated tags to add to all archived snapshots.
+
+```bash
+archivebox add --tag='blog,important' 'https://example.com'
+```
+
+Tags help organize and filter your archive:
+```bash
+archivebox search --filter-type=tag 'blog'
+```
+
+### `--parser`
+
+Specify the parser for reading input URLs.
+
+```bash
+archivebox add --parser=rss 'https://example.com/feed.xml'
+```
+
+**Available parsers:**
+- `auto` - Auto-detect format (default)
+- `txt` - Plain text, one URL per line
+- `html` - HTML file or bookmarks
+- `rss` - RSS/Atom feed
+- `json` - JSON array of URLs
+- `jsonl` - JSON Lines format
+- `netscape` - Netscape bookmark format
+
+### `--plugins`, `-p`
+
+Comma-separated list of specific plugins to run.
+
+```bash
+archivebox add --plugins='title,favicon,screenshot,singlefile' 'https://example.com'
+```
+
+By default, all enabled plugins run. Use this to run only specific extractors.
+
+### `--persona`
+
+Authentication profile to use when archiving.
+
+```bash
+archivebox add --persona='Authenticated' 'https://example.com/private'
+```
+
+Personas store cookies, credentials, and browser state for archiving authenticated pages.
+
+### `--overwrite`, `-F`
+
+Re-archive URLs and overwrite existing data.
+
+```bash
+archivebox add --overwrite 'https://example.com'
+```
+
+Forces all extractors to run again, replacing previous archive results.
+
+### `--update`
+
+Retry previously skipped or failed URLs when re-adding them.
+
+```bash
+archivebox add --update 'https://example.com'
+```
+
+Default behavior follows `ONLY_NEW` config setting.
+
+### `--index-only`
+
+Add URLs to the index without archiving them immediately.
+
+```bash
+archivebox add --index-only 'https://example.com'
+```
+
+URLs are queued but not processed. Useful for bulk importing, then archiving later.
+
+### `--bg`
+
+Queue URLs for background processing and return immediately.
+
+```bash
+archivebox add --bg 'https://example.com'
+```
+
+Requires `archivebox server` to be running to process the queue.
+
+## Input Methods
+
+### Direct URL
+
+```bash
+archivebox add 'https://example.com'
+```
+
+### Multiple URLs
+
+```bash
+archivebox add 'https://example.com' 'https://example.org'
+```
+
+### From File
+
+```bash
+archivebox add < urls.txt
+```
+
+```txt urls.txt
+https://example.com
+https://example.org
+https://example.net
+```
+
+### From Stdin (Pipe)
+
+```bash
+echo "https://example.com" | archivebox add
+```
+
+```bash
+curl https://example.com/feed.rss | archivebox add --parser=rss
+```
+
+### Browser Bookmarks
+
+Export bookmarks as HTML, then import:
+
+```bash
+archivebox add --parser=html < bookmarks.html
+```
+
+### RSS Feed
+
+```bash
+archivebox add --parser=rss 'https://example.com/feed.xml'
+```
+
+## Examples
+
+### Archive Single Page
+
+```bash
+archivebox add 'https://example.com/article'
+```
+
+### Archive Blog with All Posts
+
+```bash
+archivebox add --depth=1 'https://blog.example.com'
+```
+
+### Archive RSS Feed Regularly
+
+```bash
+archivebox add --parser=rss --tag='news' 'https://news.example.com/feed'
+```
+
+Combine with [`schedule`](/cli/schedule) for automatic updates:
+
+```bash
+archivebox schedule --every=day --parser=rss 'https://news.example.com/feed'
+```
+
+### Archive with Custom Plugins
+
+Only capture title, screenshot, and PDF:
+
+```bash
+archivebox add --plugins='title,screenshot,pdf' 'https://example.com'
+```
+
+### Archive Authenticated Site
+
+```bash
+archivebox add --persona='LoggedIn' 'https://example.com/dashboard'
+```
+
+### Bulk Import from File
+
+```bash
+archivebox add < ~/Downloads/urls.txt
+```
+
+### Background Processing
+
+```bash
+# Terminal 1: Start server
+archivebox server
+
+# Terminal 2: Queue URLs
+archivebox add --bg 'https://example.com'
+archivebox add --bg 'https://example.org'
+```
+
+### Re-archive Existing URLs
+
+Force re-archiving with latest extractors:
+
+```bash
+archivebox add --overwrite 'https://example.com'
+```
+
+### Recursive Crawl with Depth Limit
+
+Archive a site and all pages 2 hops away:
+
+```bash
+archivebox add --depth=2 --tag='project-docs' 'https://docs.example.com'
+```
+
+<Warning>
+  Start with `--depth=1` to preview scope. Each depth level can exponentially increase pages archived.
+</Warning>
+
+## Output
+
+### Foreground Mode (Default)
+
+```
+[+] Created Crawl abc123 with max_depth=0
+    First URL: https://example.com
+[*] Starting orchestrator to process crawl...
+
+crawl output saved to:
+  ./archive/users/user/crawls/20240101/example.com/abc123
+  http://127.0.0.1:8000/admin/crawls/crawl/abc123/change/
+
+total urls snapshotted: 1
+total size: 2.5 MB
+total time: 15s
+```
+
+### Background Mode
+
+```
+[+] Created Crawl abc123 with max_depth=0
+    First URL: https://example.com
+[*] URLs queued. Orchestrator will process them (run `archivebox server` if not already running).
+```
+
+## Understanding Crawls vs Snapshots
+
+- **Crawl** - A batch of URLs added together with shared configuration
+- **Snapshot** - Individual archived page with its own depth and status
+
+Each `add` command creates one Crawl containing multiple Snapshots:
+
+```bash
+archivebox add --depth=1 'https://example.com'
+# Creates:
+#   1 Crawl (max_depth=1)
+#   1 Snapshot for example.com (depth=0)
+#   N Snapshots for discovered links (depth=1)
+```
+
+## Archiving Process
+
+For each Snapshot, ArchiveBox runs these extractors in parallel:
+
+1. **Metadata:** title, favicon, headers, SSL info
+2. **Media:** screenshot, PDF, video, audio
+3. **Content:** SingleFile, DOM, readability, mercury
+4. **Assets:** wget mirror, static file downloads
+5. **Search:** Full-text indexing
+
+See [Plugins](/plugins/overview) for details on each extractor.
+
+## Troubleshooting
+
+### URLs not archiving
+
+**Check if orchestrator is running:**
+```bash
+archivebox server
+```
+
+Or run in foreground:
+```bash
+archivebox add 'https://example.com'  # Blocks until complete
+```
+
+### "Depth must be 0-4" error
+
+**Solution:** Use a valid depth value:
+```bash
+archivebox add --depth=1 'https://example.com'
+```
+
+### Too many pages archived
+
+**Solution:** Use `--depth=0` for single pages:
+```bash
+archivebox add --depth=0 'https://example.com'
+```
+
+### Archiving stuck or slow
+
+**Check extractor status:**
+```bash
+archivebox status
+```
+
+**Disable slow extractors in config:**
+```bash
+archivebox config --set SAVE_MEDIA=False
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="remove" icon="trash" href="/cli/remove">
+    Remove URLs from archive
+  </Card>
+  <Card title="update" icon="rotate" href="/cli/update">
+    Re-archive or update existing snapshots
+  </Card>
+  <Card title="schedule" icon="clock" href="/cli/schedule">
+    Automate periodic archiving
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Monitor archiving progress
+  </Card>
+</CardGroup>
+
+## Performance Tips
+
+- Use `--bg` for large batches to avoid blocking
+- Set `TIMEOUT` to limit slow page archiving
+- Disable unused extractors via config
+- Use `--plugins` to run only needed extractors
+- Start with `--depth=0`, increase gradually

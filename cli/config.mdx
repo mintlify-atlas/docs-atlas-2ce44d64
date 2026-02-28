@@ -1,0 +1,529 @@
+---
+title: archivebox config
+description: Get and set ArchiveBox configuration values
+---
+
+The `config` command manages your ArchiveBox configuration, allowing you to view, search, and modify settings.
+
+## Basic Usage
+
+```bash
+# View all configuration
+archivebox config
+
+# Get specific setting
+archivebox config --get TIMEOUT
+
+# Set a value
+archivebox config --set TIMEOUT=120
+```
+
+```bash docker
+docker compose run archivebox config
+```
+
+## Configuration File
+
+Settings are stored in `ArchiveBox.conf` in your data directory:
+
+```toml ArchiveBox.conf
+[SERVER_CONFIG]
+SECRET_KEY = "your-secret-key-here"
+BIND_ADDR = "127.0.0.1:8000"
+
+[ARCHIVING_CONFIG]
+TIMEOUT = 60
+SAVE_SCREENSHOT = true
+SAVE_PDF = true
+```
+
+## Options
+
+### `--get`
+
+Retrieve one or more configuration values.
+
+```bash
+archivebox config --get TIMEOUT
+archivebox config --get TIMEOUT SAVE_SCREENSHOT SAVE_PDF
+```
+
+Without arguments, shows all configuration:
+```bash
+archivebox config --get
+# Same as: archivebox config
+```
+
+### `--set`
+
+Set one or more configuration values.
+
+```bash
+archivebox config --set TIMEOUT=120
+archivebox config --set SAVE_SCREENSHOT=true SAVE_PDF=false
+```
+
+Format: `KEY=VALUE` separated by spaces.
+
+### `--search`
+
+Search configuration keys, values, and aliases.
+
+```bash
+archivebox config --search timeout
+archivebox config --search screenshot
+```
+
+Finds:
+- Keys containing search term
+- Values containing search term  
+- Aliases matching search term
+
+### `--reset`
+
+Reset configuration values to defaults.
+
+```bash
+archivebox config --reset TIMEOUT
+```
+
+<Note>
+  Currently not fully implemented. Manually remove lines from `ArchiveBox.conf` to reset.
+</Note>
+
+## Configuration Sections
+
+Configuration is organized into sections:
+
+### `[SERVER_CONFIG]`
+
+Web server and admin UI settings:
+
+```toml
+[SERVER_CONFIG]
+SECRET_KEY = "django-secret-key"
+BIND_ADDR = "127.0.0.1:8000"
+ADMIN_USERNAME = "admin"
+PUBLIC_INDEX = false
+PUBLIC_SNAPSHOTS = false
+```
+
+### `[ARCHIVING_CONFIG]`
+
+Archiving behavior settings:
+
+```toml
+[ARCHIVING_CONFIG]
+TIMEOUT = 60
+MEDIA_TIMEOUT = 120
+ONLY_NEW = true
+SAVE_TITLE = true
+SAVE_FAVICON = true
+SAVE_SCREENSHOT = true
+SAVE_PDF = true
+SAVE_DOM = true
+SAVE_SINGLEFILE = true
+SAVE_WGET = true
+SAVE_MEDIA = true
+```
+
+### `[SHELL_CONFIG]`
+
+CLI and shell settings:
+
+```toml
+[SHELL_CONFIG]
+DEBUG = false
+IS_TTY = true
+USE_COLOR = true
+SHOW_PROGRESS = true
+```
+
+### `[STORAGE_CONFIG]`
+
+Storage paths and locations:
+
+```toml
+[STORAGE_CONFIG]
+OUTPUT_DIR = "./archive"
+SOURCES_DIR = "./sources"
+LOGS_DIR = "./logs"
+```
+
+### `[SEARCH_CONFIG]`
+
+Search and indexing settings:
+
+```toml
+[SEARCH_CONFIG]
+SEARCH_BACKEND_ENGINE = "sqlite"
+SEARCH_BACKEND_HOST = "localhost"
+```
+
+### `[PLUGINS]`
+
+Plugin-specific configuration:
+
+```toml
+[PLUGINS]
+CHROME_BINARY = "chromium"
+CHROME_HEADLESS = true
+WGET_BINARY = "wget"
+YT_DLP_BINARY = "yt-dlp"
+```
+
+## Examples
+
+### View All Configuration
+
+```bash
+archivebox config
+```
+
+Shows organized output by section:
+
+```
+[SERVER_CONFIG]
+SECRET_KEY = "abc123..."
+BIND_ADDR = "127.0.0.1:8000"
+################################################################
+
+[ARCHIVING_CONFIG]
+TIMEOUT = 60
+SAVE_SCREENSHOT = true
+################################################################
+...
+```
+
+### Get Specific Settings
+
+```bash
+archivebox config --get TIMEOUT
+```
+
+Output:
+```
+[ARCHIVING_CONFIG]
+TIMEOUT = 60
+################################################################
+```
+
+Multiple settings:
+```bash
+archivebox config --get TIMEOUT SAVE_SCREENSHOT SAVE_PDF
+```
+
+### Set Timeout
+
+Increase archiving timeout to 120 seconds:
+
+```bash
+archivebox config --set TIMEOUT=120
+```
+
+Output:
+```
+[ARCHIVING_CONFIG]
+TIMEOUT = 120
+################################################################
+
+[✔] Configuration updated
+```
+
+### Enable/Disable Extractors
+
+Disable PDF generation:
+
+```bash
+archivebox config --set SAVE_PDF=false
+```
+
+Enable all extractors:
+
+```bash
+archivebox config --set \
+  SAVE_TITLE=true \
+  SAVE_FAVICON=true \
+  SAVE_SCREENSHOT=true \
+  SAVE_PDF=true \
+  SAVE_DOM=true \
+  SAVE_SINGLEFILE=true \
+  SAVE_WGET=true \
+  SAVE_MEDIA=true
+```
+
+### Configure Chrome
+
+Set custom Chrome binary:
+
+```bash
+archivebox config --set CHROME_BINARY=/usr/bin/google-chrome
+```
+
+Disable headless mode (for debugging):
+
+```bash
+archivebox config --set CHROME_HEADLESS=false
+```
+
+### Configure Server
+
+Change server bind address:
+
+```bash
+archivebox config --set BIND_ADDR=0.0.0.0:8000
+```
+
+Make index public:
+
+```bash
+archivebox config --set PUBLIC_INDEX=true PUBLIC_SNAPSHOTS=true
+```
+
+### Search Configuration
+
+Find all timeout-related settings:
+
+```bash
+archivebox config --search timeout
+```
+
+Output:
+```
+[ARCHIVING_CONFIG]
+TIMEOUT = 60
+MEDIA_TIMEOUT = 120
+################################################################
+```
+
+Find screenshot settings:
+
+```bash
+archivebox config --search screenshot
+```
+
+### Batch Configuration
+
+Configure multiple settings at once:
+
+```bash
+archivebox config --set \
+  TIMEOUT=120 \
+  MEDIA_TIMEOUT=180 \
+  SAVE_SCREENSHOT=true \
+  SAVE_PDF=true \
+  CHROME_HEADLESS=true
+```
+
+## Common Settings
+
+### Performance
+
+```bash
+# Increase timeout for slow sites
+archivebox config --set TIMEOUT=120
+
+# Increase media download timeout
+archivebox config --set MEDIA_TIMEOUT=300
+
+# Disable slow extractors
+archivebox config --set SAVE_MEDIA=false SAVE_WGET=false
+```
+
+### Storage
+
+```bash
+# Change output directory
+archivebox config --set OUTPUT_DIR=/mnt/archive
+
+# Change sources directory  
+archivebox config --set SOURCES_DIR=/mnt/sources
+```
+
+### Privacy
+
+```bash
+# Disable public access
+archivebox config --set PUBLIC_INDEX=false PUBLIC_SNAPSHOTS=false
+
+# Require authentication
+archivebox config --set PUBLIC_ADD_VIEW=false
+```
+
+### Archiving Behavior
+
+```bash
+# Only archive new URLs (skip duplicates)
+archivebox config --set ONLY_NEW=true
+
+# Always re-archive URLs
+archivebox config --set ONLY_NEW=false
+
+# Skip external dependencies
+archivebox config --set CHECK_SSL_VALIDITY=false
+```
+
+## Environment Variables
+
+Configuration can also be set via environment variables:
+
+```bash
+export TIMEOUT=120
+export SAVE_SCREENSHOT=true
+archivebox add 'https://example.com'
+```
+
+Environment variables override `ArchiveBox.conf`.
+
+In Docker:
+
+```yaml docker-compose.yml
+services:
+  archivebox:
+    environment:
+      - TIMEOUT=120
+      - SAVE_SCREENSHOT=true
+      - BIND_ADDR=0.0.0.0:8000
+```
+
+## Configuration Precedence
+
+Settings are loaded in this order (later overrides earlier):
+
+1. **Built-in defaults** - Hardcoded in ArchiveBox
+2. **ArchiveBox.conf** - User configuration file
+3. **Environment variables** - Shell/Docker environment
+4. **Command-line flags** - Per-command overrides
+
+## Deprecated Settings
+
+Some settings have been renamed:
+
+```
+CHECK_SSL_VALIDITY → CHECK_SSL
+CHROME_USER_DATA_DIR → CHROME_DATA_DIR
+```
+
+ArchiveBox shows a warning when using old names:
+
+```
+[i] Note: CHECK_SSL_VALIDITY has been renamed to CHECK_SSL, 
+    please use the new name going forwards.
+```
+
+## Side Effects
+
+Changing some settings affects others:
+
+```bash
+archivebox config --set OUTPUT_DIR=/mnt/archive
+```
+
+Output:
+```
+[i] Note: This change also affected these other options:
+    ARCHIVE_DIR = /mnt/archive/archive
+    SOURCES_DIR = /mnt/archive/sources
+    LOGS_DIR = /mnt/archive/logs
+```
+
+## Validation
+
+ArchiveBox validates configuration values:
+
+```bash
+archivebox config --set TIMEOUT=invalid
+```
+
+Error:
+```
+[X] Invalid value for TIMEOUT: must be a number
+```
+
+## Troubleshooting
+
+### Setting not found
+
+```
+[X] These options failed to set (check for typos):
+    TIMOUT=120
+```
+
+**Solution:** Check spelling:
+```bash
+archivebox config --search timeout
+archivebox config --set TIMEOUT=120
+```
+
+### Changes not taking effect
+
+**Solution:** Restart server:
+```bash
+archivebox server  # Restart to reload config
+```
+
+Or in Docker:
+```bash
+docker compose restart
+```
+
+### Configuration file corrupted
+
+**Solution:** Reset to defaults:
+```bash
+mv ArchiveBox.conf ArchiveBox.conf.backup
+archivebox init  # Regenerates config
+```
+
+### Environment variable not working
+
+**Solution:** Ensure correct case (uppercase):
+```bash
+export TIMEOUT=120  # Correct
+export timeout=120  # Wrong (ignored)
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="init" icon="rocket" href="/cli/init">
+    Initialize configuration
+  </Card>
+  <Card title="server" icon="server" href="/cli/server">
+    Start server with config
+  </Card>
+  <Card title="add" icon="plus" href="/cli/add">
+    Archive with custom settings
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check archive status
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+1. **Use config file for permanent changes:**
+   ```bash
+   archivebox config --set TIMEOUT=120
+   ```
+
+2. **Use environment variables for temporary overrides:**
+   ```bash
+   TIMEOUT=120 archivebox add 'https://example.com'
+   ```
+
+3. **Document configuration changes:**
+   ```bash
+   archivebox config > config-backup-$(date +%Y%m%d).txt
+   ```
+
+4. **Test before committing:**
+   ```bash
+   archivebox config --set TIMEOUT=120
+   archivebox add --index-only 'https://example.com'  # Test
+   ```
+
+5. **Keep backups:**
+   ```bash
+   cp ArchiveBox.conf ArchiveBox.conf.backup
+   ```

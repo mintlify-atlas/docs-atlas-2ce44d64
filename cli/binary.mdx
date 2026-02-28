@@ -1,0 +1,265 @@
+---
+title: 'archivebox binary'
+description: 'Manage Binary records - detected executables used by plugins'
+icon: 'microchip'
+---
+
+## Overview
+
+The `archivebox binary` command manages Binary records in ArchiveBox. Binaries are executable programs that plugins use for archiving (e.g., Chrome, wget, yt-dlp, curl).
+
+## Model Purpose
+
+**Binary** - A detected executable program. Each Binary:
+- Has a name (e.g., chrome, wget, yt-dlp)
+- Has an absolute path to the executable
+- Tracks version information
+- Records when it was loaded/detected
+- Can have custom configuration overrides
+
+## Subcommands
+
+### create
+
+Create/register a Binary.
+
+```bash
+archivebox binary create --name=<name> --abspath=<path> [options]
+```
+
+**Options:**
+- `--name`, `-n` - Binary name (e.g., chrome, wget) **(required)**
+- `--abspath`, `-p` - Absolute path to binary **(required)**
+- `--version`, `-v` - Binary version
+
+**Examples:**
+
+```bash
+# Register a binary
+archivebox binary create \
+  --name=chrome \
+  --abspath=/usr/bin/google-chrome \
+  --version="120.0.6099.109"
+
+# Register without version
+archivebox binary create \
+  --name=wget \
+  --abspath=/usr/bin/wget
+```
+
+### list
+
+List Binaries with optional filters.
+
+```bash
+archivebox binary list [options]
+```
+
+**Options:**
+- `--name`, `-n` - Filter by name
+- `--abspath__icontains` - Filter by path containing text
+- `--version__icontains` - Filter by version containing text
+- `--limit` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all binaries
+archivebox binary list
+
+# List specific binary
+archivebox binary list --name=chrome
+
+# List binaries with version 120
+archivebox binary list --version__icontains=120
+
+# List binaries in /usr/local
+archivebox binary list --abspath__icontains=/usr/local
+```
+
+### update
+
+Update Binaries from stdin JSONL.
+
+```bash
+archivebox binary list [filters] | archivebox binary update [options]
+```
+
+**Options:**
+- `--version`, `-v` - Set version
+- `--abspath`, `-p` - Set path
+
+**Examples:**
+
+```bash
+# Update binary version
+archivebox binary list --name=chrome \
+  | archivebox binary update --version="121.0.6167.85"
+
+# Update binary path
+archivebox binary list --name=chrome \
+  | archivebox binary update --abspath=/opt/chrome/chrome
+```
+
+### delete
+
+Delete Binary records from stdin JSONL.
+
+```bash
+archivebox binary list [filters] | archivebox binary delete [options]
+```
+
+**Options:**
+- `--yes`, `-y` - Confirm deletion (required)
+- `--dry-run` - Show what would be deleted without deleting
+
+**Examples:**
+
+```bash
+# Preview deletion
+archivebox binary list --name=old-chrome \
+  | archivebox binary delete --dry-run
+
+# Delete old binary entries
+archivebox binary list --name=old-chrome \
+  | archivebox binary delete --yes
+```
+
+## Common Use Cases
+
+### List Detected Binaries
+
+Check which executables ArchiveBox has detected:
+
+```bash
+# List all detected binaries
+archivebox binary list
+
+# Output shows:
+# chrome               120.0.6099.109  /usr/bin/google-chrome
+# wget                 1.21.3          /usr/bin/wget
+# yt-dlp               2024.01.01      /usr/local/bin/yt-dlp
+# curl                 8.5.0           /usr/bin/curl
+```
+
+### Check Binary Versions
+
+Verify versions of installed tools:
+
+```bash
+# Check Chrome version
+archivebox binary list --name=chrome
+
+# Check all binaries with specific version
+archivebox binary list --version__icontains=120
+
+# Find outdated binaries (manual inspection)
+archivebox binary list
+```
+
+### Troubleshoot Missing Binaries
+
+Identify which binaries are missing or incorrectly configured:
+
+```bash
+# Check if Chrome is detected
+archivebox binary list --name=chrome
+
+# Check if wget is detected
+archivebox binary list --name=wget
+
+# If missing, check installation:
+# which google-chrome
+# which wget
+```
+
+### Update After Binary Upgrade
+
+Update binary records after upgrading system packages:
+
+```bash
+# After upgrading Chrome to version 121
+archivebox binary list --name=chrome \
+  | archivebox binary update --version="121.0.6167.85"
+
+# ArchiveBox will auto-detect on next run anyway,
+# but manual update ensures consistency
+```
+
+### Clean Up Old Binary Records
+
+Remove outdated binary entries:
+
+```bash
+# Preview old binaries
+archivebox binary list --version__icontains=old-version \
+  | archivebox binary delete --dry-run
+
+# Delete them
+archivebox binary list --version__icontains=old-version \
+  | archivebox binary delete --yes
+```
+
+### Custom Binary Paths
+
+Register binaries in non-standard locations:
+
+```bash
+# Register custom Chrome installation
+archivebox binary create \
+  --name=chrome \
+  --abspath=/opt/google/chrome/chrome \
+  --version="120.0.6099.109"
+
+# Register local yt-dlp installation
+archivebox binary create \
+  --name=yt-dlp \
+  --abspath=/home/user/.local/bin/yt-dlp
+```
+
+## Binary Detection
+
+ArchiveBox automatically detects binaries on startup:
+
+1. **Searches system PATH** - Finds executables in standard locations
+2. **Checks common paths** - Looks in `/usr/bin`, `/usr/local/bin`, etc.
+3. **Queries versions** - Runs `--version` to detect version info
+4. **Creates/updates records** - Stores in database for plugins to use
+
+You rarely need to manually manage binaries unless:
+- Using custom installation paths
+- Troubleshooting detection issues
+- Working with multiple versions of same binary
+
+## Common Binaries
+
+- **chrome** / **chromium** - Browser for screenshots, PDF, DOM, etc.
+- **wget** - HTTP downloader
+- **curl** - HTTP client
+- **yt-dlp** - Video/audio downloader
+- **git** - Version control (for git archiving)
+- **node** - JavaScript runtime (for Node.js plugins)
+- **python** - Python runtime
+- **ripgrep** - Search tool
+
+## JSONL Format
+
+Binaries are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "type": "binary",
+  "id": "01JH...",
+  "name": "chrome",
+  "abspath": "/usr/bin/google-chrome",
+  "version": "120.0.6099.109",
+  "loaded_at": "2024-02-28T10:00:00Z",
+  "overrides": {}
+}
+```
+
+## See Also
+
+- [archivebox install](/usage/cli#install) - Install missing dependencies
+- [Plugins](/plugins/overview) - Learn which binaries are used by plugins
+- [Configuration](/config/overview) - Configure binary paths and overrides

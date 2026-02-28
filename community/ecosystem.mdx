@@ -1,0 +1,179 @@
+---
+title: Web Archiving Ecosystem
+description: Related projects and the broader web archiving community
+---
+
+# Web Archiving Ecosystem
+
+ArchiveBox is part of a larger ecosystem of web archiving tools, organizations, and communities working to preserve internet content.
+
+## Our Community Wiki
+
+Our [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) strives to be a comprehensive index of the web archiving industry:
+
+- **[Web Archiving Software](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects)** - List of ArchiveBox alternatives and open source projects in the internet archiving space
+- **[Awesome-Web-Archiving Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)** - Community-maintained indexes like `iipc/awesome-web-archiving`
+- **[Reading List](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#reading-list)** - Articles, posts, and blogs relevant to web archiving
+- **[Communities](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#communities)** - Active internet archiving communities and initiatives
+
+## Related Projects
+
+### Centralized Public Archives
+
+**Archive.org (Internet Archive)**
+
+The largest public web archive, providing free access to billions of archived web pages through the Wayback Machine. ArchiveBox can automatically save URLs to Archive.org for redundancy (configurable with `SAVE_ARCHIVEDOTORG`).
+
+- Website: https://archive.org
+- Wayback Machine: https://web.archive.org
+
+### Self-Hosted Archiving Alternatives
+
+**ArchiveWeb.page & ReplayWeb.page**
+
+For better fidelity with complex interactive pages, heavy JS, streams, and API requests:
+
+- https://archiveweb.page
+- https://replayweb.page
+
+**Bookmark Management with Archiving**
+
+If you want more bookmark categorization and note-taking features:
+
+- **[Memex](https://github.com/WorldBrain/Memex)** - Full-text search for browsing history and bookmarks
+- **[Hoarder](https://github.com/hoarder-app/hoarder)** - Self-hosted bookmark manager
+- **[LinkWarden](https://github.com/linkwarden/linkwarden)** - Collaborative bookmark manager
+- **[Archivy](https://archivy.github.io/)** - Knowledge base with archiving
+- **[LinkAce](https://www.linkace.org/)** - Bookmark archive manager
+
+**Advanced Crawling Tools**
+
+For more advanced recursive spider/crawling ability beyond `--depth=1`:
+
+- **[Browsertrix](https://github.com/webrecorder/browsertrix-crawler)** - High-fidelity browser-based crawler
+- **[Photon](https://github.com/s0md3v/Photon)** - Fast web crawler
+- **[Scrapy](https://scrapy.org/)** - Python web scraping framework
+
+You can pipe URLs from these tools into ArchiveBox for archiving.
+
+### ArchiveBox Integrations
+
+**Browser Extensions**
+
+- **[ArchiveBox Browser Extension](https://github.com/ArchiveBox/archivebox-browser-extension)** - Official extension for Chrome/Firefox providing realtime archiving
+- **[ArchiveBox Exporter](https://chromewebstore.google.com/detail/habonpimjphpdnmcfkaockjnffodikoj)** - Chrome Web Store version
+
+**Proxy Archiving**
+
+- **[archivebox-proxy](https://github.com/ArchiveBox/archivebox-proxy)** - Archive all traffic through a MITM proxy using ArchiveBox
+
+**Desktop Apps**
+
+- **[Electron ArchiveBox](https://github.com/ArchiveBox/electron-archivebox)** - Desktop application wrapper (alpha)
+
+## What Makes ArchiveBox Unique
+
+ArchiveBox gained momentum in the internet archiving industry because it uniquely combines three things:
+
+1. **Distributed**: Users own their data instead of entrusting it to one big central provider
+2. **Future-proof**: Saving in multiple formats and extracting raw TXT, PNG, PDF, MP4, etc. files
+3. **Extensible**: Powerful APIs, flexible storage, and a big community adding new extractors regularly
+
+### vs. Centralized Public Archives
+
+Not all content is suitable for centralized, publicly accessible platforms. Archive.org doesn't archive content behind login walls. ArchiveBox fills this gap by:
+
+- Enabling individual archiving of private/authenticated content
+- Supporting decentralized archiving less susceptible to censorship or disasters
+- Allowing users to archive much larger portions of the internet than centralized services can handle
+
+### vs. Other Self-Hosted Tools
+
+ArchiveBox differentiates itself through:
+
+- Comprehensive CLI interface for power users
+- Web UI that works independently or with the CLI
+- Simple on-disk data format usable without running ArchiveBox
+- Multiple output formats for long-term durability
+- Active development and community support
+
+## Industry Organizations
+
+**International Internet Preservation Consortium (IIPC)**
+
+A global community of organizations dedicated to preserving internet content for future generations.
+
+- Website: https://netpreserve.org/
+
+**Archive Team**
+
+A loose collective of rogue archivists, programmers, writers, and loudmouths dedicated to saving digital history.
+
+- Website: https://wiki.archiveteam.org/
+
+## Learning Resources
+
+### Essential Reading
+
+- **[On the Importance of Web Archiving](https://items.ssrc.org/parameters/on-the-importance-of-web-archiving/)** - Blog post explaining why archiving matters
+- **[Web Archiving Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)** - Comprehensive resource list
+- **[Perma.cc](https://perma.cc/)** - Library-run service creating permanent links
+
+### Academic Resources
+
+- Research papers on web archiving techniques
+- Digital preservation best practices
+- Legal and ethical considerations for archiving
+
+## Community Engagement
+
+### Social Media
+
+- Twitter: [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp)
+- Developer: [@theSquashSH](https://twitter.com/thesquashSH)
+
+### Discussions
+
+- **GitHub Discussions**: https://github.com/ArchiveBox/ArchiveBox/discussions
+- **GitHub Issues**: https://github.com/ArchiveBox/ArchiveBox/issues
+
+### Contributing
+
+Join our community of contributors! See our [Contributing Guide](/community/contributing) for details on:
+
+- Setting up your development environment
+- Finding issues to work on
+- Code style guidelines
+- Submitting pull requests
+
+## Professional Support
+
+Need help with a custom archiving solution? See our [Professional Support](/community/professional-support) page for commercial options.
+
+## Stay Updated
+
+- **Roadmap**: https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap
+- **Changelog**: https://github.com/ArchiveBox/ArchiveBox/releases
+- **Blog**: Check the GitHub wiki for announcements
+
+## Alternative Frontends
+
+When archiving sites that block bots, you can rewrite URLs to use alternative frontends:
+
+- `reddit.com/some/url` → `teddit.net/some/url`
+- See: https://github.com/mendel5/alternative-front-ends
+
+This helps work around bot blocking while preserving content ethically.
+
+## Join the Movement
+
+Web archiving is a collective effort to preserve digital history. Whether you're:
+
+- A researcher preserving academic resources
+- A journalist saving cited sources
+- An individual backing up personal bookmarks
+- An organization maintaining institutional knowledge
+
+...you're part of the solution to link rot and digital deterioration.
+
+Start archiving today and help preserve the internet for future generations!

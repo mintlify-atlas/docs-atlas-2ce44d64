@@ -1,0 +1,241 @@
+---
+title: Environment Variables
+description: Environment variable reference for ArchiveBox
+---
+
+# Environment Variables
+
+ArchiveBox can be configured using environment variables, which is especially useful in Docker environments.
+
+## Docker Compose Variables
+
+These are the most commonly used environment variables, extracted from the official `docker-compose.yml`:
+
+### Authentication
+
+<ParamField path="ADMIN_USERNAME" type="string">
+  Creates an admin user on first run with the specified username. Only used during initial setup.
+  
+  ```yaml
+  - ADMIN_USERNAME=admin
+  ```
+</ParamField>
+
+<ParamField path="ADMIN_PASSWORD" type="string">
+  Password for the admin user created on first run. Only used during initial setup.
+  
+  ```yaml
+  - ADMIN_PASSWORD=YourSecretPassword
+  ```
+</ParamField>
+
+### Server Configuration
+
+<ParamField path="LISTEN_HOST" type="string" default="archivebox.localhost:8000">
+  The hostname and port that ArchiveBox will listen on. The `web.` and `admin.` subdomains are used automatically.
+  
+  ```yaml
+  - LISTEN_HOST=archivebox.localhost:8000
+  ```
+</ParamField>
+
+<ParamField path="ALLOWED_HOSTS" type="string" default="*">
+  Django's ALLOWED_HOSTS setting. Set this to the hostname(s) you're serving the site from. Use `*` to allow all hosts.
+  
+  ```yaml
+  - ALLOWED_HOSTS=*
+  ```
+</ParamField>
+
+<ParamField path="CSRF_TRUSTED_ORIGINS" type="string">
+  Must match the admin UI URL for login/API to work correctly.
+  
+  ```yaml
+  - CSRF_TRUSTED_ORIGINS=http://admin.archivebox.localhost:8000
+  ```
+</ParamField>
+
+### Public Access Settings
+
+<ParamField path="PUBLIC_INDEX" type="boolean" default="True">
+  Allow anonymous users to view the list of all snapshots.
+  
+  ```yaml
+  - PUBLIC_INDEX=True
+  ```
+</ParamField>
+
+<ParamField path="PUBLIC_SNAPSHOTS" type="boolean" default="True">
+  Allow anonymous users to view snapshot content.
+  
+  ```yaml
+  - PUBLIC_SNAPSHOTS=True
+  ```
+</ParamField>
+
+<ParamField path="PUBLIC_ADD_VIEW" type="boolean" default="False">
+  Allow anonymous users to submit new URLs to archive.
+  
+  ```yaml
+  - PUBLIC_ADD_VIEW=False
+  ```
+</ParamField>
+
+### Search Backend
+
+<ParamField path="SEARCH_BACKEND_ENGINE" type="string" default="ripgrep">
+  Search backend to use. Options: `ripgrep` (default), `sonic` (faster full-text search).
+  
+  ```yaml
+  - SEARCH_BACKEND_ENGINE=sonic
+  ```
+</ParamField>
+
+<ParamField path="SEARCH_BACKEND_HOST_NAME" type="string">
+  Hostname of the Sonic search backend (when using sonic).
+  
+  ```yaml
+  - SEARCH_BACKEND_HOST_NAME=sonic
+  ```
+</ParamField>
+
+<ParamField path="SEARCH_BACKEND_PASSWORD" type="string">
+  Password for the Sonic search backend.
+  
+  ```yaml
+  - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+  ```
+</ParamField>
+
+### User/Group IDs (Permissions)
+
+<ParamField path="PUID" type="integer">
+  Set to your host user's UID if you encounter permissions issues. UIDs lower than 500 may clash with system users and are not recommended.
+  
+  ```yaml
+  - PUID=1000
+  ```
+</ParamField>
+
+<ParamField path="PGID" type="integer">
+  Set to your host user's GID if you encounter permissions issues. GIDs lower than 500 may clash with system groups and are not recommended.
+  
+  ```yaml
+  - PGID=1000
+  ```
+</ParamField>
+
+## Additional Configuration Variables
+
+These variables are better set via `archivebox config --set` or in `ArchiveBox.conf`, but can also be set as environment variables:
+
+### Archive Settings
+
+<ParamField path="TIMEOUT" type="integer" default="60">
+  Timeout in seconds for archiving operations. Increase to 120+ for slow downloads.
+  
+  ```yaml
+  - TIMEOUT=120
+  ```
+</ParamField>
+
+<ParamField path="YTDLP_MAX_SIZE" type="string" default="750m">
+  Maximum file size for yt-dlp downloads. Increase to allow archiving larger video/audio files.
+  
+  ```yaml
+  - YTDLP_MAX_SIZE=2g
+  ```
+</ParamField>
+
+<ParamField path="CHECK_SSL_VALIDITY" type="boolean" default="True">
+  Whether to verify SSL certificates. Set to False to archive URLs with broken/self-signed certificates.
+  
+  ```yaml
+  - CHECK_SSL_VALIDITY=False
+  ```
+</ParamField>
+
+<ParamField path="SAVE_ARCHIVE_DOT_ORG" type="boolean" default="True">
+  Submit all URLs to Archive.org when archiving. Set to False to disable.
+  
+  ```yaml
+  - SAVE_ARCHIVE_DOT_ORG=False
+  ```
+</ParamField>
+
+<ParamField path="USER_AGENT" type="string">
+  Custom User-Agent string to use for archiving requests. Useful to avoid being blocked as a bot.
+  
+  ```yaml
+  - USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64)..."
+  ```
+</ParamField>
+
+## Using Environment Variables
+
+### In Docker Compose
+
+Edit your `docker-compose.yml`:
+
+```yaml
+services:
+    archivebox:
+        environment:
+            - ADMIN_USERNAME=admin
+            - ADMIN_PASSWORD=YourPassword
+            - PUBLIC_INDEX=True
+            - TIMEOUT=120
+```
+
+Then restart the container:
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+### In Docker Run
+
+```bash
+docker run -v $PWD:/data -it \
+    -e ADMIN_USERNAME=admin \
+    -e ADMIN_PASSWORD=YourPassword \
+    -e PUBLIC_INDEX=True \
+    archivebox/archivebox
+```
+
+### On Bare Metal
+
+```bash
+# One-off command
+env TIMEOUT=120 archivebox add 'https://example.com'
+
+# Persistent in shell session
+export TIMEOUT=120
+archivebox add 'https://example.com'
+```
+
+## Best Practices
+
+<Warning>
+  **Security**: Never commit `docker-compose.yml` with passwords to version control. Use environment variable files or secrets management instead.
+</Warning>
+
+<Tip>
+  **Docker**: For most configuration options, it's better to use `docker compose run archivebox config --set SOME_KEY=value` instead of environment variables. This persists settings in `ArchiveBox.conf`.
+</Tip>
+
+<Info>
+  **Precedence**: Environment variables override settings in `ArchiveBox.conf`.
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="ArchiveBox.conf" icon="file" href="/config/archivebox-conf">
+    Configure via the ArchiveBox.conf file
+  </Card>
+  <Card title="Search Backend Setup" icon="magnifying-glass" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search">
+    Configure Sonic for faster full-text search
+  </Card>
+</CardGroup>

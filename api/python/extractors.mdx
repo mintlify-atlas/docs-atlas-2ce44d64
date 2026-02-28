@@ -1,0 +1,542 @@
+---
+title: Extractors Python API
+description: Using extractors programmatically and creating custom plugins
+---
+
+# Extractors Python API
+
+Extractors (also called plugins) are the archiving methods that capture different aspects of web pages. ArchiveBox has a flexible hook-based plugin system that allows you to use extractors programmatically or create custom ones.
+
+## Hook System Overview
+
+Extractors are implemented as standalone scripts (Python, JavaScript, or shell) that run as separate processes. This keeps the plugin system simple and language-agnostic.
+
+### Hook Discovery
+
+```python
+from archivebox.hooks import discover_hooks
+
+# Find all Snapshot hooks
+hooks = discover_hooks('Snapshot', filter_disabled=True)
+
+for hook in hooks:
+    plugin_name = hook.parent.name
+    hook_filename = hook.name
+    print(f"{plugin_name}: {hook_filename}")
+```
+
+**Output:**
+```
+wget: on_Snapshot__50_wget.py
+screenshot: on_Snapshot__51_screenshot.js
+dom: on_Snapshot__53_dom.js
+pdf: on_Snapshot__54_pdf.js
+singlefile: on_Snapshot__50_singlefile.py
+...
+```
+
+### Hook Naming Convention
+
+Hooks follow a strict naming pattern:
+
+```
+on_{ModelName}__{order}_{description}[.bg].{ext}
+```
+
+- `ModelName`: Event trigger (Snapshot, Crawl, Binary, etc.)
+- `order`: Two-digit number (00-99) controlling execution order
+- `description`: Descriptive name
+- `.bg` (optional): Background hook (doesn't block progress)
+- `ext`: File extension (py, js, sh)
+
+**Examples:**
+- `on_Snapshot__50_wget.py` - Foreground hook, runs at step 50
+- `on_Snapshot__10_chrome_tab.bg.js` - Background hook, starts at step 10
+- `on_Snapshot__63_media.bg.py` - Background hook for media downloads
+
+## Using Extractors Programmatically
+
+### Running a Single Hook
+
+```python
+from pathlib import Path
+from archivebox.hooks import run_hook
+from archivebox.core.models import Snapshot
+
+# Get a snapshot
+snapshot = Snapshot.objects.first()
+
+# Run a specific hook
+result = run_hook(
+    script=Path('/path/to/hook.py'),
+    snapshot=snapshot,
+    url=snapshot.url,
+    timeout=60
+)
+
+print(f"Exit code: {result['returncode']}")
+print(f"Duration: {result['duration_ms']}ms")
+print(f"Output: {result['stdout']}")
+
+if result['output_json']:
+    print(f"Status: {result['output_json']['status']}")
+    print(f"Files: {result['output_json'].get('output_files', [])}")
+```
+
+### Running All Hooks for an Event
+
+```python
+from archivebox.hooks import run_hooks
+from archivebox.core.models import Snapshot
+
+snapshot = Snapshot.objects.first()
+
+# Run all enabled Snapshot hooks
+results = run_hooks(
+    event_name='Snapshot',
+    snapshot=snapshot,
+    url=snapshot.url
+)
+
+# Process results
+for result in results:
+    plugin = result['plugin']
+    status = result['output_json'].get('status', 'unknown')
+    print(f"{plugin}: {status}")
+    
+    if result['returncode'] != 0:
+        print(f"  Error: {result['stderr']}")
+```
+
+### Filtering Hooks by Plugin
+
+```python
+from archivebox.hooks import discover_hooks
+from archivebox.config.configset import get_config
+
+# Get config with specific overrides
+config = get_config(
+    snapshot=snapshot,
+    overrides={'SAVE_SCREENSHOT': 'False'}  # Disable screenshot
+)
+
+# Discover hooks with custom config
+hooks = discover_hooks('Snapshot', config=config)
+
+# Or filter hooks manually
+screenshot_hooks = [
+    h for h in hooks 
+    if h.parent.name == 'screenshot'
+]
+```
+
+## Built-in Extractors
+
+ArchiveBox includes many built-in extractors in `archivebox/plugins/`:
+
+### Content Extractors
+
+- **wget** - Download with wget (WARC, HTML, assets)
+- **singlefile** - Single-file HTML snapshot
+- **dom** - DOM snapshot via Chrome DevTools Protocol
+- **readability** - Article text extraction
+- **htmltotext** - Convert HTML to plain text
+
+### Media Extractors
+
+- **screenshot** - Page screenshot
+- **pdf** - PDF snapshot
+- **media** - Download videos/audio with yt-dlp
+- **favicon** - Download favicon
+
+### Metadata Extractors
+
+- **title** - Extract page title
+- **headers** - HTTP response headers
+- **dns** - DNS resolution info
+- **ssl** - SSL certificate info
+- **accessibility** - Accessibility tree
+- **seo** - SEO metadata
+
+### Code & Data Extractors
+
+- **git** - Clone git repositories
+- **archive_org** - Save to Internet Archive
+
+## Creating Custom Extractors
+
+### Directory Structure
+
+Create a new plugin directory:
+
+```bash
+mkdir -p archivebox/plugins/myplugin
+cd archivebox/plugins/myplugin
+```
+
+### Plugin Configuration
+
+Create `config.json`:
+
+```json
+{
+  "name": "myplugin",
+  "version": "1.0.0",
+  "enabled": true,
+  "config": {
+    "SAVE_MYPLUGIN": {
+      "type": "bool",
+      "default": true,
+      "description": "Enable my custom plugin"
+    },
+    "MYPLUGIN_TIMEOUT": {
+      "type": "int",
+      "default": 30,
+      "description": "Timeout for my plugin (seconds)"
+    }
+  }
+}
+```
+
+### Python Hook Example
+
+Create `on_Snapshot__60_myplugin.py`:
+
+```python
+#!/usr/bin/env python3
+"""Custom extractor plugin example."""
+import sys
+import json
+import argparse
+from pathlib import Path
+
+def extract(url: str, snapshot_id: str, output_dir: Path) -> dict:
+    """Extract custom data from URL.
+    
+    Args:
+        url: URL to archive
+        snapshot_id: Snapshot UUID
+        output_dir: Where to write output files
+        
+    Returns:
+        Result dict with status, output_files, etc.
+    """
+    try:
+        # Your extraction logic here
+        output_file = output_dir / 'custom_data.txt'
+        output_file.write_text(f"Processed: {url}\n")
+        
+        return {
+            'status': 'succeeded',
+            'output_files': ['custom_data.txt'],
+            'output': f'Successfully extracted {url}'
+        }
+    except Exception as e:
+        return {
+            'status': 'failed',
+            'output': str(e)
+        }
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--url', required=True)
+    parser.add_argument('--snapshot-id', required=True)
+    args = parser.parse_args()
+    
+    # Output directory is always current working directory
+    output_dir = Path.cwd()
+    
+    # Run extraction
+    result = extract(args.url, args.snapshot_id, output_dir)
+    
+    # Output JSON to stdout (required)
+    print(json.dumps(result))
+    
+    # Exit with appropriate code
+    sys.exit(0 if result['status'] == 'succeeded' else 1)
+```
+
+Make it executable:
+
+```bash
+chmod +x on_Snapshot__60_myplugin.py
+```
+
+### JavaScript Hook Example
+
+Create `on_Snapshot__60_myplugin.js`:
+
+```javascript
+#!/usr/bin/env node
+/**
+ * Custom JavaScript extractor plugin.
+ */
+const fs = require('fs');
+const path = require('path');
+
+function parseArgs() {
+  const args = {};
+  process.argv.slice(2).forEach(arg => {
+    if (arg.startsWith('--')) {
+      const [key, value] = arg.slice(2).split('=');
+      args[key] = value;
+    }
+  });
+  return args;
+}
+
+async function extract(url, snapshotId, outputDir) {
+  try {
+    // Your extraction logic here
+    const outputFile = path.join(outputDir, 'custom_data.json');
+    fs.writeFileSync(outputFile, JSON.stringify({
+      url,
+      snapshotId,
+      extracted_at: new Date().toISOString()
+    }));
+    
+    return {
+      status: 'succeeded',
+      output_files: ['custom_data.json'],
+      output: `Extracted ${url}`
+    };
+  } catch (err) {
+    return {
+      status: 'failed',
+      output: err.message
+    };
+  }
+}
+
+(async () => {
+  const args = parseArgs();
+  const outputDir = process.cwd();
+  
+  const result = await extract(args.url, args['snapshot-id'], outputDir);
+  
+  // Output JSON to stdout (required)
+  console.log(JSON.stringify(result));
+  
+  process.exit(result.status === 'succeeded' ? 0 : 1);
+})();
+```
+
+### Background Hooks
+
+For long-running extractors, use background hooks with `.bg.` in the filename:
+
+```python
+# on_Snapshot__63_media.bg.py
+#!/usr/bin/env python3
+"""Background media downloader that doesn't block other extractors."""
+import sys
+import json
+import signal
+import time
+
+# Handle graceful shutdown
+shutdown = False
+def signal_handler(sig, frame):
+    global shutdown
+    shutdown = True
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, signal_handler)
+
+# Long-running download
+for i in range(100):
+    if shutdown:
+        break
+    time.sleep(1)  # Simulate work
+    
+print(json.dumps({'status': 'succeeded', 'output': 'Downloaded media'}))
+```
+
+## Hook Dependencies
+
+Extractors can depend on other plugins' output:
+
+```python
+#!/usr/bin/env python3
+"""Extractor that depends on chrome plugin output."""
+import sys
+import json
+from pathlib import Path
+
+# Check if dependency output exists
+chrome_dir = Path.cwd().parent / 'chrome'
+if not (chrome_dir / 'cdp_url.txt').exists():
+    print(json.dumps({
+        'status': 'skipped',
+        'output': 'Chrome session not available, will retry later'
+    }))
+    sys.exit(1)  # Non-zero exit triggers retry
+
+# Use chrome output
+cdp_url = (chrome_dir / 'cdp_url.txt').read_text().strip()
+print(f"Using Chrome at {cdp_url}", file=sys.stderr)
+
+# Continue with extraction...
+```
+
+## Plugin Configuration Access
+
+Access plugin configuration in your hooks:
+
+```python
+#!/usr/bin/env python3
+import os
+import json
+
+# Configuration is passed via environment variables
+timeout = int(os.environ.get('MYPLUGIN_TIMEOUT', '30'))
+enabled = os.environ.get('SAVE_MYPLUGIN', 'true').lower() == 'true'
+
+if not enabled:
+    print(json.dumps({'status': 'skipped', 'output': 'Plugin disabled'}))
+    sys.exit(0)
+
+# Use configuration
+result = extract_with_timeout(timeout)
+print(json.dumps(result))
+```
+
+## Testing Plugins
+
+Test your plugin manually:
+
+```bash
+# Run hook directly
+cd /path/to/snapshot/output/dir
+./path/to/on_Snapshot__60_myplugin.py \
+  --url=https://example.com \
+  --snapshot-id=01234567-89ab-cdef-0123-456789abcdef
+
+# Check output
+ls -la
+cat custom_data.txt
+```
+
+Test via Python:
+
+```python
+from pathlib import Path
+from archivebox.hooks import run_hook
+from archivebox.core.models import Snapshot
+
+snapshot = Snapshot.objects.first()
+script = Path('archivebox/plugins/myplugin/on_Snapshot__60_myplugin.py')
+
+result = run_hook(
+    script=script,
+    snapshot=snapshot,
+    url=snapshot.url,
+    timeout=60
+)
+
+assert result['returncode'] == 0, f"Hook failed: {result['stderr']}"
+assert result['output_json']['status'] == 'succeeded'
+print(f"Created files: {result['output_json']['output_files']}")
+```
+
+## Hook Result Format
+
+All hooks must output JSON to stdout with this structure:
+
+```json
+{
+  "status": "succeeded",
+  "output": "Human-readable output message",
+  "output_files": [
+    "relative/path/to/file1.html",
+    "relative/path/to/file2.png"
+  ],
+  "cmd": ["command", "args"],
+  "pwd": "/path/to/working/dir"
+}
+```
+
+**Status values:**
+- `succeeded` - Extraction succeeded
+- `failed` - Extraction failed permanently
+- `skipped` - Extraction skipped (will retry if dependencies resolve)
+
+## Advanced Topics
+
+### Using Chrome via CDP
+
+Many extractors use Chrome DevTools Protocol:
+
+```python
+import json
+from pathlib import Path
+import asyncio
+from pyppeteer import connect
+
+# Read CDP URL from chrome plugin output
+chrome_dir = Path.cwd().parent / 'chrome'
+cdp_url = (chrome_dir / 'cdp_url.txt').read_text().strip()
+
+async def extract_with_chrome(url):
+    browser = await connect(browserWSEndpoint=cdp_url)
+    page = await browser.newPage()
+    await page.goto(url)
+    
+    # Extract data
+    title = await page.title()
+    content = await page.content()
+    
+    await page.close()
+    
+    return {'title': title, 'content': content}
+
+result = asyncio.run(extract_with_chrome(url))
+print(json.dumps({'status': 'succeeded', 'output': result['title']}))
+```
+
+### Binary Dependencies
+
+Declare binary dependencies in `config.json`:
+
+```json
+{
+  "name": "myplugin",
+  "binaries": {
+    "my_tool": {
+      "type": "binary",
+      "binpath": "my_tool",
+      "version_flag": "--version"
+    }
+  }
+}
+```
+
+Check availability in your hook:
+
+```python
+import shutil
+
+if not shutil.which('my_tool'):
+    print(json.dumps({
+        'status': 'skipped',
+        'output': 'my_tool not installed'
+    }))
+    sys.exit(1)
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Python API Overview" icon="python" href="/api/python/overview">
+    Basic Python API usage
+  </Card>
+  <Card title="Models Reference" icon="database" href="/api/python/models">
+    Django models documentation
+  </Card>
+  <Card title="Config API" icon="gear" href="/api/python/config">
+    Configuration management
+  </Card>
+  <Card title="Plugin Source" icon="code" href="https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/plugins">
+    View built-in plugins on GitHub
+  </Card>
+</CardGroup>

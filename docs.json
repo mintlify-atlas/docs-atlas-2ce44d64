@@ -1,122 +1,173 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "ArchiveBox",
+  "theme": "maple",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#1a1a1a",
+    "light": "#5f7dae",
+    "dark": "#1a1a1a"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/archivebox/archivebox"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/archivebox/archivebox"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Installation Methods",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "install/docker-compose",
+              "install/docker",
+              "install/pip",
+              "install/apt",
+              "install/brew",
+              "install/other"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Usage",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "usage/cli",
+              "usage/web-ui",
+              "usage/browser-extension",
+              "usage/python-api"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Core Features",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "features/input-formats",
+              "features/output-formats",
+              "features/archiving",
+              "features/search",
+              "features/personas",
+              "features/scheduled-archiving"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "config/overview",
+              "config/environment-variables",
+              "config/archivebox-conf",
+              "config/dependencies",
+              "config/storage"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "plugins/overview",
+              "plugins/extractors",
+              "plugins/parsers",
+              "plugins/chrome-plugins",
+              "plugins/custom-plugins"
+            ]
+          },
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "advanced/architecture",
+              "advanced/data-model",
+              "advanced/security",
+              "advanced/troubleshooting",
+              "advanced/upgrading",
+              "advanced/backups"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "CLI Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Commands",
             "pages": [
-              "api-reference/introduction"
+              "cli/overview",
+              "cli/init",
+              "cli/add",
+              "cli/remove",
+              "cli/update",
+              "cli/list",
+              "cli/status",
+              "cli/config",
+              "cli/schedule",
+              "cli/server",
+              "cli/shell",
+              "cli/manage"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Model Commands",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "cli/crawl",
+              "cli/snapshot",
+              "cli/archiveresult",
+              "cli/tag",
+              "cli/binary",
+              "cli/persona"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/snapshots",
+              "api/crawls",
+              "api/tags",
+              "api/webhooks"
+            ]
+          },
+          {
+            "group": "Python API",
+            "pages": [
+              "api/python/overview",
+              "api/python/models",
+              "api/python/extractors",
+              "api/python/config"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Resources",
+            "pages": [
+              "community/contributing",
+              "community/ecosystem",
+              "community/professional-support",
+              "community/changelog",
+              "community/roadmap"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

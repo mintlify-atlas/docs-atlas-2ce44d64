@@ -1,0 +1,350 @@
+---
+title: Snapshots API
+description: Manage archived snapshots via REST API
+---
+
+## Overview
+
+The Snapshots API allows you to manage archived URLs (snapshots) programmatically. Each snapshot represents a single archived URL with its associated metadata and archiving results.
+
+**Base URL**: `/api/v1/core/snapshots`
+
+## Snapshot Schema
+
+A snapshot object contains:
+
+```json
+{
+  "TYPE": "core.models.Snapshot",
+  "id": "01234567-89ab-cdef-0123-456789abcdef",
+  "created_by_id": "1",
+  "created_by_username": "admin",
+  "created_at": "2024-01-15T10:30:00Z",
+  "modified_at": "2024-01-15T10:35:00Z",
+  "status": "succeeded",
+  "retry_at": null,
+  "bookmarked_at": "2024-01-15T10:30:00Z",
+  "downloaded_at": "2024-01-15T10:31:00Z",
+  "url": "https://example.com",
+  "tags": ["important", "tutorial"],
+  "title": "Example Domain",
+  "timestamp": "2024-01-15T10:30:00",
+  "archive_path": "archive/2024-01-15T10:30:00",
+  "num_archiveresults": 12,
+  "archiveresults": []
+}
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Unique identifier for the snapshot |
+| `created_by_id` | string | User ID who created the snapshot |
+| `created_by_username` | string | Username who created the snapshot |
+| `created_at` | datetime | When the snapshot was created |
+| `modified_at` | datetime | When the snapshot was last modified |
+| `status` | string | Current status (see Status Values) |
+| `retry_at` | datetime? | When to retry archiving (null if not scheduled) |
+| `bookmarked_at` | datetime | When the URL was bookmarked |
+| `downloaded_at` | datetime? | When archiving completed |
+| `url` | string | The archived URL |
+| `tags` | string[] | List of tag names |
+| `title` | string? | Page title |
+| `timestamp` | string | Snapshot timestamp identifier |
+| `archive_path` | string | Filesystem path to archived content |
+| `num_archiveresults` | int | Number of archiving results |
+| `archiveresults` | array | List of archive results (if `with_archiveresults=true`) |
+
+### Status Values
+
+- `queued` - Waiting to be archived
+- `started` - Currently being archived
+- `succeeded` - Successfully archived
+- `failed` - Archiving failed
+- `sealed` - Cancelled/frozen (no further archiving)
+
+## List Snapshots
+
+<CodeGroup>
+```bash cURL
+curl http://127.0.0.1:8000/api/v1/core/snapshots \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "http://127.0.0.1:8000/api/v1/core/snapshots",
+    headers={"X-ArchiveBox-API-Key": "your-token-here"}
+)
+snapshots = response.json()["items"]
+```
+
+```javascript JavaScript
+fetch('http://127.0.0.1:8000/api/v1/core/snapshots', {
+  headers: {
+    'X-ArchiveBox-API-Key': 'your-token-here'
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data.items));
+```
+</CodeGroup>
+
+### Query Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `limit` | int | Items per page (default: 200, max: 500) |
+| `offset` | int | Number of items to skip |
+| `page` | int | Page number (alternative to offset) |
+| `with_archiveresults` | bool | Include archiveresults array (default: false) |
+
+### Filter Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `search` | Search URL, title, tags, ID, or timestamp |
+| `id` | Filter by ID or timestamp (prefix match) |
+| `url` | Exact URL match |
+| `tag` | Filter by tag name |
+| `title` | Filter by title (case-insensitive) |
+| `timestamp` | Filter by timestamp (prefix match) |
+| `created_by_id` | Filter by creator user ID |
+| `created_by_username` | Filter by creator username |
+| `created_at` | Exact creation date |
+| `created_at__gte` | Created after date |
+| `created_at__lt` | Created before date |
+| `modified_at` | Last modified date |
+| `modified_at__gte` | Modified after date |
+| `modified_at__lt` | Modified before date |
+| `bookmarked_at__gte` | Bookmarked after date |
+| `bookmarked_at__lt` | Bookmarked before date |
+
+### Example: Filter by Tag
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/snapshots?tag=important" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+### Example: Search with Pagination
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/snapshots?search=example.com&limit=10&page=0" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+### Response
+
+```json
+{
+  "total_items": 150,
+  "total_pages": 15,
+  "page": 0,
+  "limit": 10,
+  "offset": 0,
+  "num_items": 10,
+  "items": [
+    { /* snapshot object */ },
+    { /* snapshot object */ }
+  ]
+}
+```
+
+## Get Single Snapshot
+
+Retrieve a specific snapshot by ID or timestamp.
+
+<CodeGroup>
+```bash cURL
+curl http://127.0.0.1:8000/api/v1/core/snapshot/01234567 \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "http://127.0.0.1:8000/api/v1/core/snapshot/01234567",
+    headers={"X-ArchiveBox-API-Key": "your-token-here"},
+    params={"with_archiveresults": True}
+)
+snapshot = response.json()
+```
+</CodeGroup>
+
+### Path Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `snapshot_id` | Snapshot UUID (full or prefix) or timestamp |
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `with_archiveresults` | bool | `true` | Include archiveresults array |
+
+### Response
+
+Returns a single snapshot object (see Snapshot Schema above).
+
+## Update Snapshot
+
+Update snapshot status or retry time.
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH http://127.0.0.1:8000/api/v1/core/snapshot/01234567 \
+  -H "X-ArchiveBox-API-Key: your-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "sealed"
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.patch(
+    "http://127.0.0.1:8000/api/v1/core/snapshot/01234567",
+    headers={
+        "X-ArchiveBox-API-Key": "your-token-here",
+        "Content-Type": "application/json"
+    },
+    json={"status": "sealed"}
+)
+snapshot = response.json()
+```
+</CodeGroup>
+
+### Request Body
+
+```json
+{
+  "status": "sealed",          // Optional: new status value
+  "retry_at": "2024-01-20T10:00:00Z"  // Optional: schedule retry
+}
+```
+
+### Use Cases
+
+**Cancel queued archiving:**
+```json
+{"status": "sealed"}
+```
+Setting status to `sealed` automatically sets `retry_at` to `null`.
+
+**Schedule a retry:**
+```json
+{"retry_at": "2024-01-20T10:00:00Z"}
+```
+
+### Valid Status Transitions
+
+You can update status to any of these values:
+- `queued`
+- `started`
+- `succeeded`
+- `failed`
+- `sealed`
+
+### Response
+
+Returns the updated snapshot object.
+
+## Archive Results
+
+Each snapshot can have multiple archive results (PDF, screenshot, DOM, etc.). Include them with:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/snapshot/01234567?with_archiveresults=true" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+See [ArchiveResults](/api/archiveresults) for details on the archiveresults schema.
+
+## Common Workflows
+
+### Find Recently Failed Snapshots
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/snapshots?status=failed&created_at__gte=2024-01-01" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+### Get All Snapshots for a Tag
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/snapshots?tag=important" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+### Cancel All Queued Work
+
+```python
+import requests
+
+api_key = "your-token-here"
+base_url = "http://127.0.0.1:8000/api/v1"
+headers = {"X-ArchiveBox-API-Key": api_key}
+
+# Get all queued snapshots
+response = requests.get(
+    f"{base_url}/core/snapshots",
+    headers=headers,
+    params={"status": "queued", "limit": 500}
+)
+
+# Seal each one
+for snapshot in response.json()["items"]:
+    requests.patch(
+        f"{base_url}/core/snapshot/{snapshot['id']}",
+        headers={**headers, "Content-Type": "application/json"},
+        json={"status": "sealed"}
+    )
+```
+
+### Search by URL Pattern
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/snapshots?search=github.com" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+## Error Responses
+
+### 404 Not Found
+
+```json
+{
+  "succeeded": false,
+  "message": "ObjectDoesNotExist: Snapshot matching query does not exist."
+}
+```
+
+### 400 Bad Request
+
+```json
+{
+  "succeeded": false,
+  "message": "Invalid status: invalid-status"
+}
+```
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="ArchiveResults API" icon="file" href="/api/archiveresults">
+    Access individual archiving outputs
+  </Card>
+  <Card title="Tags API" icon="tag" href="/api/tags">
+    Manage snapshot tags
+  </Card>
+  <Card title="Crawls API" icon="spider" href="/api/crawls">
+    View snapshot's parent crawl
+  </Card>
+</CardGroup>

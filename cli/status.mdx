@@ -1,0 +1,398 @@
+---
+title: archivebox status
+description: Print statistics and health information about your archive collection
+---
+
+The `status` command provides a comprehensive overview of your archive's health, including size, snapshot counts, database status, and recent activity.
+
+## Basic Usage
+
+```bash
+archivebox status
+```
+
+```bash docker
+docker compose run archivebox status
+```
+
+## What It Shows
+
+### Archive Index Statistics
+
+- **Index size** - Size of `index.sqlite3` database
+- **SQL entries** - Total snapshots in database
+- **JSON entries** - Legacy JSON index entries (if any)
+
+### Archive Data Statistics
+
+- **Total size** - Disk space used by archived content
+- **File count** - Number of archived files
+- **Directory count** - Number of snapshot directories
+
+### Snapshot Status Breakdown
+
+- **Indexed** - Total snapshots in database
+- **Archived** - Snapshots with successfully archived content
+- **Unarchived** - Pending or failed snapshots
+- **Present** - Snapshot directories on disk
+- **Valid** - Directories with matching database entries
+- **Orphaned** - Directories without database entries
+
+### User Activity
+
+- **Admin users** - List of admin usernames
+- **Last login** - Most recent admin UI login
+- **Last changes** - Most recent snapshot update
+- **Recent snapshots** - Last 10 archived snapshots
+
+## Output Example
+
+```
+[*] Scanning archive main index...
+   /data/*
+    Index size: 15.2 MB across 1 files
+
+    > SQL Main Index: 1234 links         (found in index.sqlite3)
+    > JSON Link Details: 1234 links      (found in archive/*/index.json)
+
+[*] Scanning archive data directories...
+   /data/archive/*
+    Size: 125.5 GB across 98765 files in 1234 directories
+    > indexed: 1234                      (total snapshots in DB)
+      > archived: 1180                   (snapshots with archived content)
+      > unarchived: 54                   (snapshots pending archiving)
+
+    > present: 1234                      (directories in archive/)
+      > valid: 1234                      (directories with matching DB entry)
+      > orphaned: 0                      (directories without matching DB entry)
+
+    Hint: You can list snapshots by status like so:
+        archivebox list --status=<status>  (e.g. archived, queued, etc.)
+
+[*] Scanning recent archive changes and user logins:
+   /data/logs/*
+    UI users 2: admin, editor
+    Last UI login: admin @ 2024-01-15 14:30
+    Last changes: 2024-01-15 14:25
+
+   > 2024-01-15 14:25 [15 √ 2.5MB] "Example Article": https://example.com/article
+   > 2024-01-15 14:20 [12 √ 1.8MB] "Tutorial Page": https://example.com/tutorial
+   > 2024-01-15 14:15 [18 √ 3.2MB] "Documentation": https://docs.example.com
+   ...
+```
+
+## Understanding the Output
+
+### Index Size
+
+```
+Index size: 15.2 MB across 1 files
+```
+
+Size of your SQLite database. Grows with:
+- Number of snapshots
+- Number of archive results per snapshot
+- Number of tags and metadata
+
+Typically small (< 100MB for most archives).
+
+### SQL vs JSON Counts
+
+```
+> SQL Main Index: 1234 links         (found in index.sqlite3)
+> JSON Link Details: 1234 links      (found in archive/*/index.json)
+```
+
+**Should match** - If different, indicates orphaned data:
+- **SQL > JSON** - Snapshots in database without files
+- **JSON > SQL** - Files on disk not in database
+
+Run [`archivebox update`](/cli/update) to reconcile.
+
+### Archive Size
+
+```
+Size: 125.5 GB across 98765 files in 1234 directories
+```
+
+Total disk space used. Includes:
+- HTML, PDF, screenshots
+- Downloaded media files
+- Metadata and indexes
+- WARC archives
+
+### Snapshot Status Counts
+
+```
+> indexed: 1234                      (total snapshots in DB)
+  > archived: 1180                   (snapshots with archived content)  
+  > unarchived: 54                   (snapshots pending archiving)
+```
+
+- **indexed** - All snapshots in database
+- **archived** - Successfully archived (has `downloaded_at` timestamp)
+- **unarchived** - Pending, queued, or failed (no `downloaded_at`)
+
+**Healthy ratio:** Most snapshots should be archived. High unarchived count may indicate:
+- Archiving in progress
+- Failed snapshots needing retry
+- Extractors disabled or failing
+
+### Directory Counts
+
+```
+> present: 1234                      (directories in archive/)
+  > valid: 1234                      (directories with matching DB entry)
+  > orphaned: 0                      (directories without matching DB entry)
+```
+
+- **present** - Physical directories in `archive/`
+- **valid** - Directories with corresponding database entry
+- **orphaned** - Directories without database entry
+
+**Orphaned directories** indicate:
+- Manual file operations
+- Interrupted imports
+- Database corruption recovery
+
+Fix with [`archivebox init`](/cli/init) or [`archivebox update`](/cli/update).
+
+### Recent Activity
+
+```
+> 2024-01-15 14:25 [15 √ 2.5MB] "Example Article": https://example.com/article
+```
+
+Last 10 archived snapshots showing:
+- **Timestamp** - When archived
+- **Count** - Number of successful extractors (`15`)
+- **Status** - √ (archived) or X (failed)
+- **Size** - Total archived content size
+- **Title** - Page title
+- **URL** - Archived URL
+
+## Use Cases
+
+### Health Check
+
+Quick archive health verification:
+
+```bash
+archivebox status
+```
+
+Check for:
+- Orphaned directories
+- High unarchived count  
+- Recent activity
+- Disk space usage
+
+### Monitoring Script
+
+Automated health monitoring:
+
+```bash
+#!/bin/bash
+OUTPUT=$(archivebox status)
+
+# Check for orphaned directories
+if echo "$OUTPUT" | grep -q "orphaned: [1-9]"; then
+  echo "Warning: Orphaned directories detected"
+  archivebox update
+fi
+
+# Check for high unarchived count
+UNARCHIVED=$(echo "$OUTPUT" | grep "unarchived:" | grep -oP '\d+')
+if [ "$UNARCHIVED" -gt 100 ]; then
+  echo "Warning: $UNARCHIVED snapshots unarchived"
+fi
+```
+
+### Disk Space Planning
+
+Estimate growth rate:
+
+```bash
+# Record status weekly
+archivebox status > status-$(date +%Y%m%d).txt
+
+# Compare growth
+diff status-20240101.txt status-20240108.txt
+```
+
+### Archive Audit
+
+Generate audit report:
+
+```bash
+archivebox status > audit-report-$(date +%Y%m%d).txt
+```
+
+Includes:
+- Total snapshots and size
+- Success/failure rates
+- User activity
+- Recent changes
+
+## Interpreting Results
+
+### Healthy Archive
+
+```
+indexed: 1000
+  archived: 980
+  unarchived: 20
+present: 1000
+  valid: 1000
+  orphaned: 0
+```
+
+- High archived percentage (>95%)
+- Zero orphaned directories
+- SQL and JSON counts match
+- Recent activity shows successful archives
+
+### Archive Needs Attention
+
+```
+indexed: 1000
+  archived: 600
+  unarchived: 400
+present: 950
+  valid: 900
+  orphaned: 50
+```
+
+- Low archived percentage (&lt;70%)
+- Orphaned directories present
+- Mismatch between indexed and present
+
+**Actions:**
+```bash
+# Reconcile database with filesystem
+archivebox update
+
+# Retry failed snapshots
+archivebox search --status=unarchived
+archivebox update --filter-type=tag 'failed'
+
+# Import orphaned directories
+archivebox init
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="init" icon="rocket" href="/cli/init">
+    Fix orphaned directories
+  </Card>
+  <Card title="update" icon="rotate" href="/cli/update">
+    Reconcile database and filesystem
+  </Card>
+  <Card title="search" icon="magnifying-glass" href="/cli/list">
+    List snapshots by status
+  </Card>
+  <Card title="add" icon="plus" href="/cli/add">
+    Add more snapshots
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### High orphaned count
+
+**Solution:**
+```bash
+archivebox init  # Import orphaned directories
+```
+
+### SQL and JSON counts don't match
+
+**Solution:**
+```bash
+archivebox update  # Reconcile database with filesystem
+```
+
+### High unarchived count
+
+**Solution:**
+```bash
+# Check why snapshots are unarchived
+archivebox search --status=unarchived
+
+# Retry them
+archivebox update
+
+# Or re-queue specific ones
+archivebox add --overwrite 'https://example.com'
+```
+
+### No recent activity
+
+**Solution:**
+```bash
+# Check if orchestrator is running
+archivebox server
+
+# Or manually process queue
+archivebox update
+```
+
+## Performance Impact
+
+`status` performs filesystem scans which can be slow on large archives:
+
+- **Database queries** - Fast (milliseconds)
+- **Filesystem scans** - Slow on large archives (seconds to minutes)
+- **Size calculation** - Recursive scan of `archive/` directory
+
+For large archives (>10k snapshots), status may take 10-30 seconds.
+
+**Optimization:**
+Cache size calculations:
+
+```bash
+# Run status in background periodically
+watch -n 3600 'archivebox status > /tmp/status.txt'
+
+# View cached results
+cat /tmp/status.txt
+```
+
+## Monitoring Integration
+
+Integrate with monitoring systems:
+
+### Prometheus
+
+```bash
+#!/bin/bash
+# Export metrics for Prometheus
+OUTPUT=$(archivebox status)
+INDEXED=$(echo "$OUTPUT" | grep "indexed:" | grep -oP '\d+')
+ARCHIVED=$(echo "$OUTPUT" | grep "archived:" | grep -oP '\d+')
+ORPHANED=$(echo "$OUTPUT" | grep "orphaned:" | grep -oP '\d+')
+
+echo "archivebox_snapshots_indexed $INDEXED"
+echo "archivebox_snapshots_archived $ARCHIVED"
+echo "archivebox_directories_orphaned $ORPHANED"
+```
+
+### Nagios/Icinga
+
+```bash
+#!/bin/bash
+# Nagios check script
+ORPHANED=$(archivebox status | grep "orphaned:" | grep -oP '\d+')
+
+if [ "$ORPHANED" -gt 10 ]; then
+  echo "CRITICAL: $ORPHANED orphaned directories"
+  exit 2
+elif [ "$ORPHANED" -gt 0 ]; then
+  echo "WARNING: $ORPHANED orphaned directories"
+  exit 1
+else
+  echo "OK: No orphaned directories"
+  exit 0
+fi
+```

@@ -1,0 +1,221 @@
+---
+title: Contributing Guide
+description: Learn how to contribute to ArchiveBox development
+---
+
+# Contributing to ArchiveBox
+
+All contributions to ArchiveBox are welcomed! We appreciate your help in making this project better.
+
+## Getting Started
+
+### Confirm Your Idea Fits
+
+1. Check our [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) to confirm your desired features fit into our bigger project goals
+2. Open an issue with your planned implementation to discuss
+3. Check in before starting development to make sure your work won't conflict with or duplicate existing work
+
+### Find Something to Work On
+
+For low hanging fruit and easy first tickets, see:
+
+- [Issues labeled "help wanted"](https://github.com/ArchiveBox/ArchiveBox/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+- [Issues labeled "good first ticket"](https://github.com/ArchiveBox/ArchiveBox/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+ticket%22)
+
+## Development Setup
+
+### Prerequisites
+
+- Python 3.11+ (3.13 recommended)
+- uv package manager
+- A non-root user for running tests (e.g., `testuser`)
+
+### Clone and Setup
+
+```bash
+# Clone the main code repo (with submodules)
+git clone --recurse-submodules https://github.com/ArchiveBox/ArchiveBox
+cd ArchiveBox
+git checkout dev  # or the branch you want to test
+git submodule update --init --recursive
+
+# Install dependencies (always use uv, never pip directly)
+uv sync --dev --all-extras
+
+# Install ArchiveBox runtime dependencies
+mkdir -p data && cd data
+archivebox install  # or 'archivebox setup' on older versions
+```
+
+### Run Development Server
+
+```bash
+# Development server with autoreloading (no bg workers)
+archivebox manage runserver --debug --reload 0.0.0.0:8000
+
+# Production server (with bg workers but no autoreloading)
+archivebox server 0.0.0.0:8000
+```
+
+### Docker Development
+
+```bash
+# Build development Docker image
+./bin/build_docker.sh dev
+
+# Initialize with Docker
+docker run -it -v $PWD/data:/data archivebox/archivebox:dev init --setup
+
+# Run development server
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox \
+  -p 8000:8000 archivebox/archivebox:dev manage runserver 0.0.0.0:8000 --debug --reload
+```
+
+## Code Style Guidelines
+
+### Naming Conventions
+
+Use consistent naming for grep-ability and logical grouping:
+
+- **Group related functions with common prefixes**: `fs_migrate()`, `fs_migration_needed()`
+- **Use `_` prefix for private helpers**: `_log_error()`, `_fs_next_version()`
+- **All logging methods must start with `log_` or `_log`**
+
+### Minimize Unique Names
+
+Reuse existing field names and data structures to keep the codebase predictable:
+
+```python
+# GOOD: Reuse the same field name
+class Binary(models.Model):
+    overrides = models.JSONField(default=dict)
+
+# BAD: Inventing new names
+class Binary(models.Model):
+    custom_bin_cmds = models.JSONField(default=dict)  # ❌
+```
+
+## Testing
+
+### Running Tests
+
+```bash
+# Run all tests (as non-root user)
+sudo -u testuser bash -c 'source .venv/bin/activate && python -m pytest archivebox/tests/ -v'
+
+# Run specific test file
+pytest archivebox/tests/test_migrations_08_to_09.py -v
+
+# Run single test
+pytest archivebox/tests/test_migrations_fresh.py::TestFreshInstall::test_init_creates_database -xvs
+```
+
+### Test Writing Standards
+
+- **NO MOCKS**: Tests must exercise real code paths with real databases
+- **NO SKIPS**: Never use `@skip` or `pytest.mark.skip` - fix the test or code instead
+- **Strict Assertions**: Use exact counts (`==`) not loose bounds (`>=`)
+
+### Linting
+
+```bash
+./bin/lint.sh  # Uses flake8, mypy, ruff
+./bin/test.sh  # Uses pytest
+```
+
+## Making Changes
+
+### Database Migrations
+
+```bash
+# Generate migrations after changes to models.py
+cd archivebox/
+./manage.py makemigrations
+
+# Apply migrations to test database
+cd data/
+archivebox init
+```
+
+### Adding a New Extractor
+
+Extractors are external binaries or scripts that archive content. See examples:
+
+- [Issue #399](https://github.com/ArchiveBox/ArchiveBox/issues/399) + [PR #403](https://github.com/ArchiveBox/ArchiveBox/pull/403) - Adding SingleFile extractor
+- Check [`archivebox/extractors/`](https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/extractors) for existing extractors
+
+## Submitting Changes
+
+1. **Make your changes** and test thoroughly
+2. **Commit with clear messages** describing the why, not just the what
+3. **Push to your fork** and submit a Pull Request
+4. **Wait for review feedback** and be patient - we all have day jobs!
+5. **Don't abandon your PR** - ping [@theSquashSH](https://twitter.com/thesquashSH) if you need faster response
+
+## Pull Request Guidelines
+
+- Open an issue first to discuss your proposed changes
+- Keep PRs focused on a single feature or fix
+- Include tests for new functionality
+- Update documentation as needed
+- Follow existing code style and conventions
+- Make sure all tests pass before submitting
+
+## Code Coverage
+
+We track code coverage to find dead code and improve test quality:
+
+```bash
+# Run tests with coverage
+pytest --cov=archivebox --cov-report=term archivebox/tests/
+
+# Generate coverage report
+coverage combine
+coverage report --show-missing
+
+# View HTML report
+coverage html
+open htmlcov/index.html
+```
+
+## Developer Resources
+
+- **Python API Documentation**: https://docs.archivebox.io/en/dev/archivebox.html
+- **Architecture Diagrams**: https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
+- **Issue Tracker**: https://github.com/ArchiveBox/ArchiveBox/issues
+- **Roadmap**: https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap
+- **Development Guide**: `CLAUDE.md` in the repository
+
+## Getting Help
+
+- Open issues on [GitHub](https://github.com/ArchiveBox/ArchiveBox/issues)
+- Join discussions on [GitHub Discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)
+- Contact via Twitter: [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) or [@theSquashSH](https://twitter.com/thesquashSH)
+- Visit https://sweeting.me/#contact
+
+## Common Development Tasks
+
+See the `./bin/` folder for bash scripts covering common tasks. Examples:
+
+```bash
+# Enter Python shell
+archivebox shell
+
+# Enter SQL shell
+archivebox manage dbshell
+
+# Generate ORM model graph
+brew install graphviz
+pip install pydot graphviz
+archivebox manage graph_models -a -o orm.png
+
+# List all models with info
+archivebox manage list_model_info --all --signature
+
+# Print all Django settings
+archivebox manage print_settings --format=yaml
+```
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.

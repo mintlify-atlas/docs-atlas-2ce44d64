@@ -1,0 +1,509 @@
+---
+title: Tags API
+description: Organize snapshots with tags via REST API
+---
+
+## Overview
+
+The Tags API allows you to manage tags and organize your snapshots. Tags can be used to categorize and filter archived URLs.
+
+**Base URL**: `/api/v1/core/tags`
+
+## Tag Schema
+
+A tag object contains:
+
+```json
+{
+  "TYPE": "core.models.Tag",
+  "id": "01234567-89ab-cdef-0123-456789abcdef",
+  "created_at": "2024-01-15T10:30:00Z",
+  "modified_at": "2024-01-15T10:35:00Z",
+  "created_by_id": "1",
+  "created_by_username": "admin",
+  "name": "Important",
+  "slug": "important",
+  "num_snapshots": 42,
+  "snapshots": []
+}
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Unique identifier for the tag |
+| `created_at` | datetime | When the tag was created |
+| `modified_at` | datetime | When the tag was last modified |
+| `created_by_id` | string | User ID who created the tag |
+| `created_by_username` | string | Username who created the tag |
+| `name` | string | Display name of the tag |
+| `slug` | string | URL-safe version of the name |
+| `num_snapshots` | int | Number of snapshots with this tag |
+| `snapshots` | array | List of snapshots (if `with_snapshots=true`) |
+
+## List Tags
+
+Get all tags in the system.
+
+<CodeGroup>
+```bash cURL
+curl http://127.0.0.1:8000/api/v1/core/tags \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "http://127.0.0.1:8000/api/v1/core/tags",
+    headers={"X-ArchiveBox-API-Key": "your-token-here"}
+)
+tags = response.json()["items"]
+```
+
+```javascript JavaScript
+fetch('http://127.0.0.1:8000/api/v1/core/tags', {
+  headers: {
+    'X-ArchiveBox-API-Key': 'your-token-here'
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data.items));
+```
+</CodeGroup>
+
+### Response
+
+Returns a paginated list of tags:
+
+```json
+{
+  "total_items": 25,
+  "total_pages": 1,
+  "page": 0,
+  "limit": 200,
+  "offset": 0,
+  "num_items": 25,
+  "items": [
+    {
+      "TYPE": "core.models.Tag",
+      "id": "01234567-89ab-cdef-0123-456789abcdef",
+      "name": "Important",
+      "slug": "important",
+      "num_snapshots": 42,
+      ...
+    }
+  ]
+}
+```
+
+## Get Single Tag
+
+Retrieve a specific tag by ID or slug.
+
+<CodeGroup>
+```bash cURL
+curl http://127.0.0.1:8000/api/v1/core/tag/important \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "http://127.0.0.1:8000/api/v1/core/tag/important",
+    headers={"X-ArchiveBox-API-Key": "your-token-here"},
+    params={"with_snapshots": True}
+)
+tag = response.json()
+```
+</CodeGroup>
+
+### Path Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `tag_id` | Tag UUID (full or prefix) or tag slug |
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `with_snapshots` | bool | `true` | Include snapshots array |
+
+### Response
+
+Returns a single tag object with optional snapshots array.
+
+## Tag Management Endpoints
+
+### Autocomplete Tags
+
+Search for tags by name (useful for autocomplete UI).
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/tags/autocomplete/?q=imp" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+**Response:**
+```json
+{
+  "tags": [
+    {
+      "id": 1,
+      "name": "Important",
+      "slug": "important"
+    },
+    {
+      "id": 2,
+      "name": "Imported",
+      "slug": "imported"
+    }
+  ]
+}
+```
+
+**Query Parameters:**
+- `q` - Search query (searches tag names)
+- Returns up to 20 matches if query provided
+- Returns up to 50 tags if no query provided
+
+### Create Tag
+
+Create a new tag or return existing one with the same name.
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://127.0.0.1:8000/api/v1/core/tags/create/ \
+  -H "X-ArchiveBox-API-Key: your-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Tutorial"}'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "http://127.0.0.1:8000/api/v1/core/tags/create/",
+    headers={
+        "X-ArchiveBox-API-Key": "your-token-here",
+        "Content-Type": "application/json"
+    },
+    json={"name": "Tutorial"}
+)
+tag = response.json()
+```
+</CodeGroup>
+
+**Request Body:**
+```json
+{
+  "name": "Tutorial"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "tag_id": 1,
+  "tag_name": "Tutorial",
+  "created": true
+}
+```
+
+<Note>
+Tag names are case-insensitive. If a tag with the same name (ignoring case) already exists, it will be returned instead of creating a duplicate.
+</Note>
+
+### Add Tag to Snapshot
+
+Add a tag to a snapshot. Creates the tag if it doesn't exist.
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://127.0.0.1:8000/api/v1/core/tags/add-to-snapshot/ \
+  -H "X-ArchiveBox-API-Key: your-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "snapshot_id": "01234567",
+    "tag_name": "Important"
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "http://127.0.0.1:8000/api/v1/core/tags/add-to-snapshot/",
+    headers={
+        "X-ArchiveBox-API-Key": "your-token-here",
+        "Content-Type": "application/json"
+    },
+    json={
+        "snapshot_id": "01234567",
+        "tag_name": "Important"
+    }
+)
+result = response.json()
+```
+</CodeGroup>
+
+**Request Body:**
+```json
+{
+  "snapshot_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "tag_name": "Important"  // Use tag_name OR tag_id
+  // "tag_id": 1            // Alternative to tag_name
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "tag_id": 1,
+  "tag_name": "Important"
+}
+```
+
+### Remove Tag from Snapshot
+
+Remove a tag from a snapshot.
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://127.0.0.1:8000/api/v1/core/tags/remove-from-snapshot/ \
+  -H "X-ArchiveBox-API-Key: your-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "snapshot_id": "01234567",
+    "tag_name": "Important"
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "http://127.0.0.1:8000/api/v1/core/tags/remove-from-snapshot/",
+    headers={
+        "X-ArchiveBox-API-Key": "your-token-here",
+        "Content-Type": "application/json"
+    },
+    json={
+        "snapshot_id": "01234567",
+        "tag_id": 1
+    }
+)
+result = response.json()
+```
+</CodeGroup>
+
+**Request Body:**
+```json
+{
+  "snapshot_id": "01234567-89ab-cdef-0123-456789abcdef",
+  "tag_name": "Important"  // Use tag_name OR tag_id
+  // "tag_id": 1            // Alternative to tag_name
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "tag_id": 1,
+  "tag_name": "Important"
+}
+```
+
+## Common Workflows
+
+### Organize Snapshots with Tags
+
+```python
+import requests
+
+api_key = "your-token-here"
+base_url = "http://127.0.0.1:8000/api/v1"
+headers = {
+    "X-ArchiveBox-API-Key": api_key,
+    "Content-Type": "application/json"
+}
+
+# Create a tag
+response = requests.post(
+    f"{base_url}/core/tags/create/",
+    headers=headers,
+    json={"name": "Research"}
+)
+tag = response.json()
+print(f"Created tag: {tag['tag_name']}")
+
+# Add tag to multiple snapshots
+snapshot_ids = ["01234567", "89abcdef", "fedcba98"]
+for snapshot_id in snapshot_ids:
+    requests.post(
+        f"{base_url}/core/tags/add-to-snapshot/",
+        headers=headers,
+        json={
+            "snapshot_id": snapshot_id,
+            "tag_id": tag["tag_id"]
+        }
+    )
+    print(f"Tagged snapshot {snapshot_id}")
+```
+
+### View All Snapshots with a Tag
+
+```bash
+# Method 1: Get tag with snapshots
+curl "http://127.0.0.1:8000/api/v1/core/tag/important?with_snapshots=true" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+
+# Method 2: Filter snapshots by tag
+curl "http://127.0.0.1:8000/api/v1/core/snapshots?tag=important" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+### Build a Tag Cloud
+
+```python
+import requests
+
+response = requests.get(
+    "http://127.0.0.1:8000/api/v1/core/tags",
+    headers={"X-ArchiveBox-API-Key": "your-token-here"}
+)
+
+tags = response.json()["items"]
+tag_cloud = sorted(tags, key=lambda t: t["num_snapshots"], reverse=True)
+
+for tag in tag_cloud[:10]:
+    print(f"{tag['name']}: {tag['num_snapshots']} snapshots")
+```
+
+### Bulk Tag Removal
+
+```python
+import requests
+
+api_key = "your-token-here"
+base_url = "http://127.0.0.1:8000/api/v1"
+headers = {
+    "X-ArchiveBox-API-Key": api_key,
+    "Content-Type": "application/json"
+}
+
+# Get all snapshots with a tag
+response = requests.get(
+    f"{base_url}/core/tag/temporary?with_snapshots=true",
+    headers={"X-ArchiveBox-API-Key": api_key}
+)
+tag = response.json()
+
+# Remove tag from all snapshots
+for snapshot in tag["snapshots"]:
+    requests.post(
+        f"{base_url}/core/tags/remove-from-snapshot/",
+        headers=headers,
+        json={
+            "snapshot_id": snapshot["id"],
+            "tag_id": tag["id"]
+        }
+    )
+```
+
+### Tag Autocomplete UI
+
+```javascript
+// JavaScript example for autocomplete UI
+const searchTags = async (query) => {
+  const response = await fetch(
+    `http://127.0.0.1:8000/api/v1/core/tags/autocomplete/?q=${query}`,
+    {
+      headers: {
+        'X-ArchiveBox-API-Key': 'your-token-here'
+      }
+    }
+  );
+  const data = await response.json();
+  return data.tags;
+};
+
+// Use in autocomplete input
+const input = document.getElementById('tag-input');
+input.addEventListener('input', async (e) => {
+  const suggestions = await searchTags(e.target.value);
+  // Display suggestions to user
+  console.log(suggestions);
+});
+```
+
+## Error Responses
+
+### 404 Not Found - Tag
+
+```json
+{
+  "succeeded": false,
+  "message": "ObjectDoesNotExist: Tag matching query does not exist."
+}
+```
+
+### 404 Not Found - Snapshot
+
+```json
+{
+  "succeeded": false,
+  "message": "ObjectDoesNotExist: Snapshot not found"
+}
+```
+
+### 400 Bad Request - Missing Name
+
+```json
+{
+  "succeeded": false,
+  "message": "Tag name is required"
+}
+```
+
+### 400 Bad Request - Missing Parameters
+
+```json
+{
+  "succeeded": false,
+  "message": "Either tag_name or tag_id is required"
+}
+```
+
+## Tag Naming Guidelines
+
+<Info>
+**Best Practices:**
+
+- Use clear, descriptive names
+- Keep names concise (1-2 words)
+- Use title case (e.g., "Important", "Work Project")
+- Avoid special characters (slugs are auto-generated)
+- Tag names are case-insensitive but preserve display case
+</Info>
+
+**Examples:**
+- Good: "Research", "Important", "Work", "Personal"
+- Avoid: "IMPORTANT!!!", "todo-2024-jan", "misc"
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Snapshots API" icon="camera" href="/api/snapshots">
+    Filter snapshots by tags
+  </Card>
+  <Card title="Crawls API" icon="spider" href="/api/crawls">
+    Crawls can apply tags to all snapshots
+  </Card>
+</CardGroup>

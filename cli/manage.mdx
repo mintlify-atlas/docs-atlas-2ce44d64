@@ -1,0 +1,568 @@
+---
+title: archivebox manage
+description: Run Django management commands for advanced administration
+---
+
+The `manage` command provides direct access to Django's management interface, enabling advanced database operations, user management, and system administration tasks.
+
+## Basic Usage
+
+```bash
+archivebox manage <command> [options]
+```
+
+```bash docker
+docker compose run archivebox manage <command>
+```
+
+<Note>
+  This is equivalent to Django's `./manage.py` command but configured for ArchiveBox's environment.
+</Note>
+
+## Common Commands
+
+### User Management
+
+#### Create Superuser
+
+Create admin account for web UI:
+
+```bash
+archivebox manage createsuperuser
+```
+
+Interactive prompts:
+```
+Username: admin
+Email: admin@example.com
+Password: 
+Password (again):
+Superuser created successfully.
+```
+
+Non-interactive:
+```bash
+archivebox manage createsuperuser \
+  --username admin \
+  --email admin@example.com \
+  --noinput
+```
+
+In Docker (needs `-it` for interactive):
+```bash
+docker compose run -it archivebox manage createsuperuser
+```
+
+#### Change Password
+
+```bash
+archivebox manage changepassword admin
+```
+
+#### List Users
+
+```bash
+archivebox manage shell -c "from django.contrib.auth.models import User; print('\\n'.join(u.username for u in User.objects.all()))"
+```
+
+### Database Management
+
+#### Run Migrations
+
+```bash
+archivebox manage migrate
+```
+
+Apply specific migration:
+```bash
+archivebox manage migrate core 0023
+```
+
+List migrations:
+```bash
+archivebox manage showmigrations
+```
+
+Rollback migration:
+```bash
+archivebox manage migrate core 0022
+```
+
+#### Make Migrations
+
+```bash
+archivebox manage makemigrations
+```
+
+Dry-run (show SQL without applying):
+```bash
+archivebox manage sqlmigrate core 0023
+```
+
+#### Database Shell
+
+Direct SQL access:
+
+```bash
+archivebox manage dbshell
+```
+
+Opens SQLite prompt:
+```sql
+sqlite> SELECT COUNT(*) FROM core_snapshot;
+sqlite> .tables
+sqlite> .schema core_snapshot
+sqlite> .quit
+```
+
+### Static Files
+
+#### Collect Static Files
+
+```bash
+archivebox manage collectstatic
+```
+
+For production deployments serving static files separately.
+
+### Development
+
+#### Run Development Server
+
+```bash
+archivebox manage runserver
+```
+
+Custom port:
+```bash
+archivebox manage runserver 0.0.0.0:8080
+```
+
+<Note>
+  Use [`archivebox server`](/cli/server) instead for production.
+</Note>
+
+#### Run Tests
+
+```bash
+archivebox manage test
+```
+
+Specific test:
+```bash
+archivebox manage test archivebox.tests.test_models
+```
+
+#### Shell Access
+
+```bash
+archivebox manage shell
+```
+
+<Note>
+  Use [`archivebox shell`](/cli/shell) for enhanced shell with auto-imports.
+</Note>
+
+### Cleanup
+
+#### Clear Sessions
+
+```bash
+archivebox manage clearsessions
+```
+
+Removes expired session data.
+
+#### Clear Cache
+
+```bash
+archivebox manage clear_cache
+```
+
+### Background Workers
+
+#### ArchiveBox Orchestrator
+
+Run the background archiving worker:
+
+```bash
+archivebox manage orchestrator
+```
+
+With specific crawl:
+```bash
+archivebox manage orchestrator --crawl-id=abc123
+```
+
+Exit when idle:
+```bash
+archivebox manage orchestrator --exit-on-idle
+```
+
+<Note>
+  The [`archivebox server`](/cli/server) command runs this automatically.
+</Note>
+
+## Advanced Commands
+
+### Check System
+
+```bash
+archivebox manage check
+```
+
+Outputs:
+```
+System check identified no issues (0 silenced).
+```
+
+### Show URLs
+
+List all registered URL patterns:
+
+```bash
+archivebox manage show_urls
+```
+
+### Dump Database
+
+Export database to JSON:
+
+```bash
+archivebox manage dumpdata > backup.json
+```
+
+Specific app:
+```bash
+archivebox manage dumpdata core > core-backup.json
+```
+
+Specific model:
+```bash
+archivebox manage dumpdata core.Snapshot > snapshots.json
+```
+
+### Load Database
+
+Import from JSON dump:
+
+```bash
+archivebox manage loaddata backup.json
+```
+
+<Warning>
+  This adds to existing data. Clear database first for clean import.
+</Warning>
+
+### Flush Database
+
+Delete all data (keeps structure):
+
+```bash
+archivebox manage flush
+```
+
+Requires confirmation:
+```
+You have requested a flush of the database.
+This will IRREVERSIBLY DESTROY all data currently in the database.
+Are you sure you want to do this?
+
+Type 'yes' to continue: yes
+```
+
+### Reset Database
+
+Drop and recreate database:
+
+```bash
+archivebox manage reset_db
+```
+
+<Warning>
+  DESTRUCTIVE: Deletes ALL data including schema. Use for development only.
+</Warning>
+
+## Custom Management Commands
+
+ArchiveBox provides additional management commands:
+
+### Orchestrator
+
+```bash
+archivebox manage orchestrator [options]
+```
+
+**Options:**
+- `--exit-on-idle` - Exit when queue is empty
+- `--crawl-id=ID` - Process specific crawl only
+- `--forever` - Run continuously (default)
+
+### Import from Chrome
+
+```bash
+archivebox manage import_chrome_bookmarks ~/bookmarks.html
+```
+
+### Import from Firefox
+
+```bash
+archivebox manage import_firefox_bookmarks ~/bookmarks.html
+```
+
+## Examples
+
+### Create Admin User (Non-interactive)
+
+```bash
+ARCHIVEBOX_PASSWORD="SecurePass123" archivebox manage createsuperuser \
+  --username admin \
+  --email admin@example.com \
+  --noinput
+```
+
+### Backup and Restore
+
+Full backup:
+
+```bash
+# Backup database
+archivebox manage dumpdata > backup-$(date +%Y%m%d).json
+
+# Backup files
+tar -czf archive-backup-$(date +%Y%m%d).tar.gz archive/
+```
+
+Restore:
+
+```bash
+# Restore database
+archivebox manage flush --noinput
+archivebox manage loaddata backup-20240115.json
+
+# Restore files
+tar -xzf archive-backup-20240115.tar.gz
+```
+
+### Database Migration
+
+Check current migration state:
+
+```bash
+archivebox manage showmigrations core
+```
+
+Output:
+```
+core
+ [X] 0001_initial
+ [X] 0002_auto_20200101_0000
+ ...
+ [X] 0023_new_schema
+ [ ] 0024_auto_20240101_0000
+```
+
+Apply pending:
+```bash
+archivebox manage migrate core
+```
+
+### User Administration
+
+Reset user password:
+
+```bash
+archivebox manage changepassword admin
+```
+
+Create multiple users:
+
+```bash
+for user in editor viewer; do
+  archivebox manage createsuperuser \
+    --username $user \
+    --email ${user}@example.com \
+    --noinput
+done
+```
+
+### Development Workflow
+
+Create and apply custom migration:
+
+```bash
+# Create migration
+archivebox manage makemigrations core
+
+# Check SQL
+archivebox manage sqlmigrate core 0025
+
+# Apply migration
+archivebox manage migrate core
+
+# Rollback if needed
+archivebox manage migrate core 0024
+```
+
+### Performance Analysis
+
+Show slow queries:
+
+```bash
+archivebox manage shell
+```
+
+```python
+from django.db import connection, reset_queries
+from django.conf import settings
+
+settings.DEBUG = True
+reset_queries()
+
+# Your queries here
+Snapshot.objects.filter(status='archived').count()
+
+for query in connection.queries:
+    print(f"{query['time']}s: {query['sql']}")
+```
+
+## Docker Usage
+
+### Interactive Commands
+
+For commands requiring input, use `-it`:
+
+```bash
+docker compose run -it archivebox manage createsuperuser
+```
+
+### Non-Interactive Commands
+
+For scripts, use `-T`:
+
+```bash
+docker compose run -T archivebox manage migrate
+```
+
+### Environment Variables
+
+```bash
+docker compose run \
+  -e DJANGO_SUPERUSER_PASSWORD=SecurePass123 \
+  archivebox manage createsuperuser \
+  --username admin \
+  --email admin@example.com \
+  --noinput
+```
+
+## Troubleshooting
+
+### "No such table" errors
+
+**Solution:** Run migrations:
+```bash
+archivebox manage migrate
+```
+
+### "No changes detected" when making migrations
+
+**Solution:** Specify app:
+```bash
+archivebox manage makemigrations core
+```
+
+### Migration conflicts
+
+**Solution:** Show migration plan:
+```bash
+archivebox manage showmigrations
+```
+
+Resolve conflicts manually or reset:
+```bash
+archivebox manage migrate core zero
+archivebox manage migrate core
+```
+
+### Permission denied in Docker
+
+**Solution:** Run as correct user:
+```bash
+docker compose run --user $(id -u):$(id -g) archivebox manage createsuperuser
+```
+
+### "Operation now in progress" with interactive commands
+
+**Solution:** Use `-it` flag:
+```bash
+docker compose run -it archivebox manage createsuperuser
+```
+
+## Security Considerations
+
+<Warning>
+  Management commands have full database access. Restrict usage to trusted administrators only.
+</Warning>
+
+**Best practices:**
+
+1. **Backup before destructive operations:**
+   ```bash
+   archivebox manage dumpdata > backup.json
+   ```
+
+2. **Test migrations on copy first:**
+   ```bash
+   cp index.sqlite3 index.sqlite3.backup
+   archivebox manage migrate
+   ```
+
+3. **Use strong passwords:**
+   ```bash
+   archivebox manage changepassword admin
+   ```
+
+4. **Regular backups:**
+   ```bash
+   crontab -e
+   # Add: 0 2 * * * cd /data && archivebox manage dumpdata > backups/backup-$(date +\%Y\%m\%d).json
+   ```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="shell" icon="terminal" href="/cli/shell">
+    Interactive Python shell
+  </Card>
+  <Card title="server" icon="server" href="/cli/server">
+    Start web server
+  </Card>
+  <Card title="init" icon="rocket" href="/cli/init">
+    Initialize and run migrations
+  </Card>
+  <Card title="config" icon="gear" href="/cli/config">
+    Configure ArchiveBox
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+### List All Commands
+
+```bash
+archivebox manage help
+```
+
+### Command-Specific Help
+
+```bash
+archivebox manage help createsuperuser
+archivebox manage help migrate
+archivebox manage help dumpdata
+```
+
+### Django Documentation
+
+Full Django management command reference:
+- [Django Admin Documentation](https://docs.djangoproject.com/en/stable/ref/django-admin/)
+- [Custom Management Commands](https://docs.djangoproject.com/en/stable/howto/custom-management-commands/)

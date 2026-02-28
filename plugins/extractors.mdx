@@ -1,0 +1,319 @@
+---
+title: 'Extractor Plugins'
+description: 'Content extraction and archiving plugins'
+---
+
+## What are Extractors?
+
+Extractor plugins capture and archive different aspects of web content. Each extractor produces specific output artifacts (HTML, PDFs, screenshots, videos, etc.) stored in the snapshot directory.
+
+## Core Extractors
+
+### Chrome-Based Extractors
+
+These extractors require the **chrome** plugin and use Chrome DevTools Protocol (CDP):
+
+#### DOM
+Captures the complete DOM snapshot of a page.
+
+- **Plugin**: `dom`
+- **Output**: `dom/dom.html`
+- **Config**:
+  - `DOM_ENABLED` (default: `true`)
+  - `DOM_TIMEOUT` (default: `60`)
+- **Dependencies**: chrome
+- **Use case**: Preserves JavaScript-rendered content, enables recursive crawling
+
+#### Screenshot
+Takes a full-page screenshot.
+
+- **Plugin**: `screenshot`
+- **Output**: `screenshot/screenshot.png`
+- **Config**:
+  - `SCREENSHOT_ENABLED` (default: `true`)
+  - `SCREENSHOT_TIMEOUT` (default: `60`)
+  - `SCREENSHOT_RESOLUTION` (default: `"1440,2000"`)
+- **Dependencies**: chrome
+- **Use case**: Visual snapshots of pages
+
+#### PDF
+Generates a PDF version of the page.
+
+- **Plugin**: `pdf`
+- **Output**: `pdf/pdf.pdf`
+- **Config**:
+  - `PDF_ENABLED` (default: `true`)
+  - `PDF_TIMEOUT` (default: `60`)
+- **Dependencies**: chrome
+- **Use case**: Print-friendly archives, offline viewing
+
+#### SingleFile
+Saves a complete HTML file with all resources inlined.
+
+- **Plugin**: `singlefile`
+- **Output**: `singlefile/singlefile.html`
+- **Config**:
+  - `SINGLEFILE_ENABLED` (default: `true`)
+  - `SINGLEFILE_BINARY` (default: `"single-file"`)
+  - `SINGLEFILE_TIMEOUT` (default: `60`)
+  - `SINGLEFILE_ARGS` - Custom arguments
+- **Dependencies**: chrome, npm
+- **Use case**: Self-contained HTML archives with embedded resources
+
+<Note>
+SingleFile can run as either:
+1. **CLI tool** (`single-file-cli`) - Launches its own Chrome instance
+2. **Browser extension** - Runs inside existing Chrome session (faster)
+</Note>
+
+### Command-Line Extractors
+
+These extractors use external tools and don't require Chrome:
+
+#### Wget
+Downloads pages and resources using wget.
+
+- **Plugin**: `wget`
+- **Output**: `wget/` directory with mirrored content
+- **Config**:
+  - `WGET_ENABLED` (default: `true`)
+  - `WGET_WARC_ENABLED` (default: `true`) - Save WARC archive
+  - `WGET_TIMEOUT` (default: `60`)
+  - `WGET_ARGS` - wget command-line arguments
+- **Dependencies**: wget binary
+- **Use case**: Recursive downloads, WARC archives, mirror entire sites
+
+#### YT-DLP (Media)
+Downloads videos and audio from hundreds of sites.
+
+- **Plugin**: `ytdlp`
+- **Output**: `ytdlp/` directory with media files
+- **Config**:
+  - `YTDLP_ENABLED` (default: `true`)
+  - `YTDLP_TIMEOUT` (default: `3600`)
+  - `YTDLP_MAX_SIZE` (default: `"750m"`)
+  - `YTDLP_ARGS` - yt-dlp arguments
+- **Aliases**: `MEDIA_ENABLED`, `SAVE_MEDIA`
+- **Dependencies**: yt-dlp binary
+- **Use case**: Archive videos from YouTube, Vimeo, Twitter, etc.
+
+<Info>
+yt-dlp supports 1000+ sites. Set `YTDLP_MAX_SIZE` to prevent downloading huge files.
+</Info>
+
+### Content Extractors
+
+These plugins extract readable content or article text:
+
+#### Readability
+Extracts main article content using Mozilla's Readability algorithm.
+
+- **Plugin**: `readability`
+- **Output**: `readability/readability.json`
+- **Config**:
+  - `READABILITY_ENABLED` (default: `true`)
+  - `READABILITY_TIMEOUT` (default: `30`)
+- **Use case**: Extract clean article text without ads/clutter
+
+#### Mercury
+Extracts article content, author, date published.
+
+- **Plugin**: `mercury`
+- **Output**: `mercury/mercury.json`
+- **Config**:
+  - `MERCURY_ENABLED` (default: `true`)
+  - `MERCURY_TIMEOUT` (default: `30`)
+- **Dependencies**: npm
+- **Use case**: Article metadata extraction
+
+#### HTML to Text
+Converts HTML to plain text.
+
+- **Plugin**: `htmltotext`
+- **Output**: `htmltotext/htmltotext.txt`
+- **Config**:
+  - `HTMLTOTEXT_ENABLED` (default: `true`)
+- **Use case**: Full-text search indexing, text analysis
+
+### Specialized Downloaders
+
+#### Git
+Clones Git repositories.
+
+- **Plugin**: `git`
+- **Output**: `git/` directory with cloned repository
+- **Config**:
+  - `GIT_ENABLED` (default: `true`)
+  - `GIT_TIMEOUT` (default: `60`)
+- **Dependencies**: git binary
+- **Use case**: Archive GitHub/GitLab repositories
+
+#### Archive.org
+Saves pages to the Wayback Machine.
+
+- **Plugin**: `archivedotorg`
+- **Output**: `archivedotorg/archivedotorg.json` with archive URL
+- **Config**:
+  - `ARCHIVEDOTORG_ENABLED` (default: `true`)
+- **Use case**: Backup to Internet Archive
+
+#### Static File
+Downloads direct file links (PDFs, images, executables, etc.).
+
+- **Plugin**: `staticfile`
+- **Output**: `staticfile/` directory with downloaded file
+- **Config**:
+  - `STATICFILE_ENABLED` (default: `true`)
+- **Dependencies**: chrome (uses CDP to handle downloads)
+- **Use case**: Archive direct file URLs
+
+#### Academic Papers
+Downloads academic papers and PDFs.
+
+- **Plugin**: `papersdl`
+- **Output**: `papersdl/` directory
+- **Config**:
+  - `PAPERSDL_ENABLED` (default: `true`)
+- **Use case**: Archive academic papers from arXiv, PubMed, etc.
+
+#### Gallery Downloader
+Downloads images from galleries and image boards.
+
+- **Plugin**: `gallerydl`
+- **Output**: `gallerydl/` directory
+- **Config**:
+  - `GALLERYDL_ENABLED` (default: `true`)
+- **Use case**: Archive image galleries
+
+#### Forum Downloader
+Downloads forum threads and discussions.
+
+- **Plugin**: `forumdl`
+- **Output**: `forumdl/` directory
+- **Config**:
+  - `FORUMDL_ENABLED` (default: `true`)
+- **Use case**: Archive forum content
+
+## Extractor Configuration
+
+### Enable/Disable Extractors
+
+Control which extractors run:
+
+```bash
+# Disable screenshot
+export SCREENSHOT_ENABLED=False
+
+# Enable only specific extractors
+export WGET_ENABLED=True
+export SINGLEFILE_ENABLED=True
+export SCREENSHOT_ENABLED=False
+export PDF_ENABLED=False
+```
+
+### Timeout Settings
+
+Each extractor has a configurable timeout:
+
+```bash
+# Set longer timeout for video downloads
+export YTDLP_TIMEOUT=7200  # 2 hours
+
+# Shorter timeout for fast archiving
+export SCREENSHOT_TIMEOUT=30
+```
+
+### Global Fallbacks
+
+Many settings fall back to global values:
+
+```bash
+# Set global timeout (applies to all extractors that don't override)
+export TIMEOUT=120
+
+# Set global user agent
+export USER_AGENT="Mozilla/5.0 ..."
+```
+
+## Output Structure
+
+Extractors save their output in the snapshot directory:
+
+```
+snapshots/YYYYMMDD/example.com/{snapshot-uuid}/
+├── dom/
+│   └── dom.html
+├── screenshot/
+│   └── screenshot.png
+├── pdf/
+│   └── pdf.pdf
+├── singlefile/
+│   └── singlefile.html
+├── wget/
+│   └── example.com/
+│       └── index.html
+├── ytdlp/
+│   └── video.mp4
+└── readability/
+    └── readability.json
+```
+
+## Best Practices
+
+### Performance
+
+- **Disable unused extractors** to speed up archiving
+- **Adjust timeouts** based on your content (videos need longer timeouts)
+- **Use Chrome session pooling** for multiple Chrome-based extractors
+
+### Quality
+
+- **Enable multiple extractors** for redundancy (both wget and singlefile)
+- **Set appropriate resolution** for screenshots (`SCREENSHOT_RESOLUTION`)
+- **Configure yt-dlp** to get best quality: `YTDLP_ARGS=["--format", "best"]`
+
+### Storage
+
+- **Set size limits** for media downloads (`YTDLP_MAX_SIZE`)
+- **Disable WARC** if storage is limited (`WGET_WARC_ENABLED=False`)
+- **Use selective extraction** for large sites
+
+## Troubleshooting
+
+### Extractor Fails
+
+1. **Check dependencies**: Ensure required binaries are installed
+2. **Increase timeout**: Some sites take longer to load
+3. **Check logs**: Look for error messages in plugin output
+4. **Test binary**: Run extractor binary directly to verify it works
+
+### Chrome-Based Extractors Fail
+
+1. **Verify Chrome is running**: Check chrome plugin is enabled
+2. **Check CDP connection**: Ensure Chrome session is accessible
+3. **Review Chrome logs**: Look at `consolelog` plugin output
+
+### Missing Output
+
+1. **Check if extractor is enabled**: `{PLUGIN}_ENABLED=True`
+2. **Verify plugin dependencies**: Check `required_plugins` in config.json
+3. **Look for skip conditions**: Some extractors skip certain URL types
+
+## Related Plugins
+
+<CardGroup cols={2}>
+  <Card
+    title="Chrome Plugins"
+    icon="browser"
+    href="/plugins/chrome-plugins"
+  >
+    Learn about Chrome-based plugins that extractors depend on
+  </Card>
+  <Card
+    title="Parser Plugins"
+    icon="code"
+    href="/plugins/parsers"
+  >
+    Parse URLs from extractor output for recursive crawling
+  </Card>
+</CardGroup>

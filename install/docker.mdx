@@ -1,0 +1,244 @@
+---
+title: 'Docker Installation'
+description: 'Install ArchiveBox using plain Docker'
+icon: 'docker'
+---
+
+Use plain Docker if you prefer running containers directly without Docker Compose, or if you need more control over container management.
+
+## Prerequisites
+
+- **Docker**: Install [Docker](https://docs.docker.com/get-docker/) on your system
+- **Supported Systems**: Linux, macOS, Windows
+- **CPUs**: `amd64` (`x86_64`), `arm64`, `arm7` (Raspberry Pi ≥3)
+
+<Tip>
+For most users, we recommend [Docker Compose installation](/install/docker-compose) instead for easier management.
+</Tip>
+
+## Installation
+
+<Steps>
+  <Step title="Create a data directory">
+    Create a new directory to store your ArchiveBox data:
+    
+    ```bash
+    mkdir -p ~/archivebox/data && cd ~/archivebox/data
+    ```
+  </Step>
+
+  <Step title="Run initial setup">
+    Initialize ArchiveBox and create an admin user:
+    
+    ```bash
+    docker run -v $PWD:/data -it archivebox/archivebox init --setup
+    ```
+    
+    This will:
+    - Create the data directory structure
+    - Initialize the SQLite database
+    - Prompt you to create an admin user
+    
+    The `-v $PWD:/data` flag mounts your current directory as the data directory inside the container.
+  </Step>
+
+  <Step title="Start the server (optional)">
+    Launch the ArchiveBox web server:
+    
+    ```bash
+    docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+    ```
+    
+    The server will be accessible at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+    
+    <Note>
+    The CLI can always be used without running a server. The web interface is completely optional.
+    </Note>
+  </Step>
+</Steps>
+
+## Usage
+
+### Adding URLs
+
+```bash
+# Add a single URL
+docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
+
+# Add URLs from stdin
+echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
+```
+
+<Warning>
+Add `-i` flag when piping stdin to Docker (not `-it`).
+</Warning>
+
+### Common Commands
+
+```bash
+# View help
+docker run -v $PWD:/data -it archivebox/archivebox help
+
+# Check version and dependencies
+docker run -v $PWD:/data -it archivebox/archivebox version
+
+# List all snapshots
+docker run -v $PWD:/data -it archivebox/archivebox list
+
+# Check archive status
+docker run -v $PWD:/data -it archivebox/archivebox status
+```
+
+### Shell Aliases for Convenience
+
+To avoid typing the full Docker command every time, create a shell alias:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+alias archivebox='docker run -v $PWD:/data -it archivebox/archivebox'
+
+# Then use it like:
+archivebox add 'https://example.com'
+archivebox help
+```
+
+## Running as a Background Service
+
+To run the server in the background:
+
+```bash
+# Start server in detached mode
+docker run -d \
+  -v $PWD:/data \
+  -p 8000:8000 \
+  --name archivebox \
+  archivebox/archivebox
+
+# View logs
+docker logs -f archivebox
+
+# Stop the server
+docker stop archivebox
+
+# Remove the container
+docker rm archivebox
+```
+
+## Configuration
+
+You can configure ArchiveBox using environment variables:
+
+```bash
+# Pass environment variables with -e
+docker run -v $PWD:/data -it \
+  -e TIMEOUT=120 \
+  -e CHECK_SSL_VALIDITY=False \
+  archivebox/archivebox add 'https://example.com'
+```
+
+Or use the config command:
+
+```bash
+docker run -v $PWD:/data -it archivebox/archivebox config --set TIMEOUT=120
+```
+
+## Updating
+
+To update to the latest version:
+
+```bash
+# Pull the latest image
+docker pull archivebox/archivebox
+
+# Stop and remove old container (if running)
+docker stop archivebox
+docker rm archivebox
+
+# Run migrations
+docker run -v $PWD:/data -it archivebox/archivebox init
+
+# Start new container
+docker run -d -v $PWD:/data -p 8000:8000 --name archivebox archivebox/archivebox
+```
+
+## Troubleshooting
+
+### Permission Issues
+
+If you encounter permission errors, you may need to set the user:
+
+```bash
+docker run -v $PWD:/data -it \
+  --user $(id -u):$(id -g) \
+  archivebox/archivebox add 'https://example.com'
+```
+
+### Port Already in Use
+
+Change the host port mapping:
+
+```bash
+# Use port 8080 instead of 8000
+docker run -v $PWD:/data -it -p 8080:8000 archivebox/archivebox
+```
+
+### Container Won't Start
+
+Check the logs for errors:
+
+```bash
+docker logs archivebox
+```
+
+Ensure the data directory is properly mounted:
+
+```bash
+# Must run from inside your data directory
+cd ~/archivebox/data
+docker run -v $PWD:/data -it archivebox/archivebox status
+```
+
+### Data Persistence
+
+<Warning>
+Always use the `-v $PWD:/data` volume mount to persist your data. Without it, all data will be lost when the container is removed.
+</Warning>
+
+## Windows Users
+
+On Windows, use PowerShell and replace `$PWD` with the full path:
+
+```powershell
+# PowerShell
+docker run -v ${PWD}:/data -it archivebox/archivebox init --setup
+```
+
+Or use CMD:
+
+```cmd
+# CMD
+docker run -v %cd%:/data -it archivebox/archivebox init --setup
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Import URLs" icon="file-import" href="/usage/import">
+    Learn how to import bookmarks and URLs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize ArchiveBox settings
+  </Card>
+  <Card title="Web UI" icon="browser" href="/usage/web-ui">
+    Use the web interface
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Master the command-line interface
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+- [Docker Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)
+- [Docker CLI Usage Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage-1)
+- [Upgrading Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)

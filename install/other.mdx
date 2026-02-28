@@ -1,0 +1,327 @@
+---
+title: 'Other Installation Methods'
+description: 'Install ArchiveBox using Arch, FreeBSD, Nix, or self-hosting platforms'
+icon: 'box'
+---
+
+ArchiveBox supports various other installation methods for different platforms and use cases.
+
+<Warning>
+These installation methods are contributed by external volunteers and may lag behind the official pip channel. Use Docker or pip for the most up-to-date version.
+</Warning>
+
+## Package Managers
+
+### Arch Linux (AUR)
+
+Install from the Arch User Repository:
+
+```bash
+yay -S archivebox
+```
+
+- **Package**: [archivebox (AUR)](https://aur.archlinux.org/packages/archivebox/)
+- **Contributed by**: [@imlonghao](https://github.com/imlonghao)
+- **Maintained by**: [@jasongodev](https://github.com/jasongodev)
+
+### FreeBSD
+
+Use the automatic setup script:
+
+```bash
+curl -fsSL 'https://get.archivebox.io' | bash
+```
+
+This uses `pkg` + `pip3` under-the-hood to install dependencies and ArchiveBox.
+
+### Nix/NixOS
+
+Install using the Nix package manager:
+
+```bash
+nix-env --install archivebox
+```
+
+- **Package**: [archivebox (nixpkgs)](https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/archivebox/default.nix)
+- **Contributed by**: [@siraben](https://github.com/siraben)
+
+### GNU Guix
+
+Install using GNU Guix:
+
+```bash
+guix install archivebox
+```
+
+- **Package**: [archivebox (Guix)](https://packages.guix.gnu.org/packages/archivebox/)
+- **Contributed by**: [@rakino](https://github.com/rakino)
+
+## Self-Hosting Platforms
+
+### UnRaid
+
+Install from the UnRaid Community Applications:
+
+- **App Store**: [ArchiveBox on UnRaid](https://unraid.net/community/apps?q=archivebox#r)
+- Search for "ArchiveBox" in the Community Applications tab
+
+### Proxmox VE
+
+Use the community script for Proxmox:
+
+- **Script**: [ArchiveBox Proxmox Script](https://community-scripts.github.io/ProxmoxVE/scripts?id=archivebox)
+- Creates a container with ArchiveBox pre-installed
+
+### YunoHost
+
+Install through the YunoHost app store:
+
+```bash
+sudo yunohost app install archivebox
+```
+
+- **Package**: [archivebox_ynh](https://github.com/YunoHost-Apps/archivebox_ynh)
+- Access through YunoHost's web interface
+
+### Cloudron
+
+Install from the Cloudron app store:
+
+- **App Store**: [ArchiveBox on Cloudron](https://www.cloudron.io/store/io.archivebox.cloudronapp.html)
+- One-click installation through Cloudron dashboard
+
+### Saltbox
+
+Install using Saltbox:
+
+- **Documentation**: [ArchiveBox on Saltbox](https://docs.saltbox.dev/sandbox/apps/archivebox/)
+- Add to your Saltbox configuration
+
+### Portainer
+
+Use the Portainer template:
+
+- **Template**: [ArchiveBox Portainer Template](https://portainer-templates.as93.net/archivebox)
+- Deploy through Portainer's web interface
+
+### Runtipi
+
+Install through Runtipi:
+
+- **App Store**: [ArchiveBox on Runtipi](https://runtipi.io/docs/apps-available#:~:text=for%20AI%20Chats.-,ArchiveBox,Open%20source%20self%2Dhosted%20web%20archiving.,-Atuin%20Server)
+- Available in the Runtipi app marketplace
+
+### TrueNAS SCALE
+
+<Warning>
+TrueCharts has been discontinued. Wait for [Electric Eel](https://forums.truenas.com/t/the-future-of-electric-eel-and-apps/5409/) support.
+</Warning>
+
+Previously available options:
+- ~~Official ArchiveBox TrueChart~~ (deprecated)
+- [Custom App Guide](https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788) (may be outdated)
+
+### Umbrel
+
+<Note>
+Umbrel support is in development. Contributors wanted! See [Issue #986](https://github.com/ArchiveBox/ArchiveBox/issues/986).
+</Note>
+
+## Desktop App (Alpha)
+
+The Electron-based desktop app provides a native application experience.
+
+### macOS
+
+1. Download the latest release: [ArchiveBox.app.zip](https://github.com/ArchiveBox/ArchiveBox/releases/download/v0.6.2/Electron-ArchiveBox-macOS-x64-0.6.2.app.zip)
+2. Extract and move to Applications folder
+3. Launch ArchiveBox.app
+
+### Linux
+
+Build from source (alpha):
+
+```bash
+git clone https://github.com/ArchiveBox/electron-archivebox.git
+cd electron-archivebox
+npm install
+npm start
+```
+
+### Windows
+
+Build from source (beta):
+
+```bash
+git clone https://github.com/ArchiveBox/electron-archivebox.git
+cd electron-archivebox
+npm install
+npm start
+```
+
+<Info>
+The desktop app is in active development. See the [Electron ArchiveBox repo](https://github.com/ArchiveBox/electron-archivebox) for more info.
+</Info>
+
+## Auto-Setup Script
+
+The automatic setup script works on macOS and Linux:
+
+```bash
+curl -fsSL 'https://get.archivebox.io' | bash
+```
+
+<Warning>
+Review the [setup.sh source code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh) before running. See ["Against curl | sh"](https://docs.sweeting.me/s/against-curl-sh) for security considerations.
+</Warning>
+
+What it does:
+- Detects your OS and package manager
+- Installs Python, Node.js, and system dependencies
+- Installs ArchiveBox via pip
+- Creates a data directory
+- Runs `archivebox init --setup`
+
+## Cloud VPS Providers
+
+For unmanaged hosting, use Docker or pip on any VPS:
+
+### DigitalOcean
+
+- [Docker Compose on Ubuntu 20.04](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04)
+- Starting at $5-50+/month
+- [Referral link](https://m.do.co/c/cbc4c0c17840) (includes free credit)
+
+### Vultr
+
+- [Docker Compose on Ubuntu 20.04](https://www.vultr.com/docs/install-docker-compose-on-ubuntu-20-04)
+- Starting at $2.50-50+/month
+- [Referral link](https://www.vultr.com/?ref=7130289) (includes free credit)
+
+### Fly.io
+
+- [Getting Started Guide](https://fly.io/docs/hands-on/start/)
+- Starting at $10-50+/month
+- Unmanaged app hosting
+
+### Railway
+
+- [ArchiveBox Template](https://railway.app/template/2Vvhmy)
+- Starting at $0-5+/month
+- One-click deployment
+
+## Managed Hosting Services
+
+### Official Support
+
+- **ArchiveBox.io**: [Custom development and hosting](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) directly from the ArchiveBox team
+- **Monadical.com**: [Generalist consulting](https://monadical.com/contact-us.html) with ArchiveBox experience
+
+### Third-Party Providers
+
+<Warning>
+These providers are not officially endorsed. Use at your own discretion.
+</Warning>
+
+- **[Elest.io](https://elest.io/open-source/archivebox)**: Managed hosting
+- **[StellarHosted.com](https://www.stellarhosted.com/archivebox/)**: Semi-managed hosting ($29-250/month)
+- **[PikaPods.com](https://www.pikapods.com/pods?run=archivebox)**: Semi-managed hosting (from $2.60/month)
+
+## After Installation
+
+Regardless of installation method, the usage is the same:
+
+<Steps>
+  <Step title="Create a data directory">
+    ```bash
+    mkdir -p ~/archivebox/data && cd ~/archivebox/data
+    ```
+  </Step>
+
+  <Step title="Initialize ArchiveBox">
+    ```bash
+    archivebox init --setup
+    ```
+  </Step>
+
+  <Step title="Add your first URL">
+    ```bash
+    archivebox add 'https://example.com'
+    ```
+  </Step>
+
+  <Step title="Start the server">
+    ```bash
+    archivebox server 0.0.0.0:8000
+    ```
+  </Step>
+</Steps>
+
+## Contributing New Installation Methods
+
+<Info>
+Want to add ArchiveBox to another platform? We welcome contributions!
+
+- [Open an issue](https://github.com/ArchiveBox/ArchiveBox/issues/new) to discuss
+- Submit a PR with packaging files
+- Help maintain existing community packages
+</Info>
+
+## Troubleshooting
+
+### Package Version is Outdated
+
+If the package is behind the latest release:
+
+```bash
+# Upgrade with pip to get the latest version
+pip3 install --upgrade archivebox
+
+# Or use Docker for the latest stable release
+docker pull archivebox/archivebox:latest
+```
+
+### Platform-Specific Issues
+
+For platform-specific problems:
+
+1. Check the package repository's issue tracker
+2. Consult the platform's documentation
+3. Try the Docker installation as a fallback
+4. Ask in the [ArchiveBox community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
+
+### Dependencies Missing
+
+If dependencies are missing:
+
+```bash
+# Check what's missing
+archivebox version
+
+# Install missing dependencies with your package manager
+# (varies by platform)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Import URLs" icon="file-import" href="/usage/import">
+    Learn how to import bookmarks and URLs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize ArchiveBox settings
+  </Card>
+  <Card title="Web UI" icon="browser" href="/usage/web-ui">
+    Use the web interface
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Master the command-line interface
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+- [Community Packages](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
+- [Paid Hosting Options](https://github.com/ArchiveBox/ArchiveBox/issues/531)
+- [Self-Hosting Guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Install)
+- [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)

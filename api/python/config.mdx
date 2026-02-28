@@ -1,0 +1,505 @@
+---
+title: Configuration Python API
+description: Reading and modifying ArchiveBox configuration programmatically
+---
+
+# Configuration Python API
+
+ArchiveBox provides a comprehensive configuration system that can be accessed and modified programmatically. Configuration is organized into several sections and can be sourced from multiple locations.
+
+## Configuration Sources
+
+Configuration values are loaded from multiple sources in this order (later sources override earlier ones):
+
+1. **Built-in defaults** - Hard-coded defaults
+2. **Environment variables** - `ARCHIVEBOX_*` prefixed
+3. **Config file** - `ArchiveBox.conf` in data directory
+4. **Machine config** - Per-machine overrides in database
+5. **Crawl config** - Per-crawl overrides in database
+6. **Snapshot config** - Per-snapshot overrides in database
+
+## Configuration Sections
+
+Configuration is organized into logical sections:
+
+```python
+from archivebox.config import (
+    CONSTANTS,           # Immutable constants (paths, versions)
+    SHELL_CONFIG,        # Shell/CLI settings
+    STORAGE_CONFIG,      # Storage and filesystem settings
+    GENERAL_CONFIG,      # General settings
+    SERVER_CONFIG,       # Web server settings
+    ARCHIVING_CONFIG,    # Archiving behavior settings
+    SEARCH_BACKEND_CONFIG, # Search backend settings
+)
+```
+
+## Constants (Read-Only)
+
+Immutable constants for paths and versions:
+
+```python
+from archivebox.config import CONSTANTS
+
+# Core paths
+print(CONSTANTS.DATA_DIR)      # Path('/path/to/archivebox/data')
+print(CONSTANTS.ARCHIVE_DIR)   # Path('/path/to/archivebox/data/archive')
+print(CONSTANTS.PACKAGE_DIR)   # Path to ArchiveBox installation
+
+# Temporary paths
+print(CONSTANTS.TMP_DIR)       # /tmp/archivebox
+print(CONSTANTS.LIB_DIR)       # ~/.local/share/archivebox
+
+# Index filenames
+print(CONSTANTS.JSON_INDEX_FILENAME)   # 'index.json'
+print(CONSTANTS.JSONL_INDEX_FILENAME)  # 'index.jsonl'
+print(CONSTANTS.HTML_INDEX_FILENAME)   # 'index.html'
+print(CONSTANTS.SQL_INDEX_FILENAME)    # 'index.sqlite3'
+
+# CLI colors
+if CONSTANTS.DEFAULT_CLI_COLORS:
+    print(CONSTANTS.DEFAULT_CLI_COLORS['green'])  # ANSI color code
+```
+
+## Shell Configuration
+
+Settings for CLI and shell behavior:
+
+```python
+from archivebox.config import SHELL_CONFIG
+
+# Terminal settings
+print(SHELL_CONFIG.IS_TTY)         # bool: Running in terminal?
+print(SHELL_CONFIG.USE_COLOR)      # bool: Use ANSI colors?
+print(SHELL_CONFIG.SHOW_PROGRESS)  # bool: Show progress bars?
+print(SHELL_CONFIG.TERM_WIDTH)     # int: Terminal width in columns
+
+# Environment
+print(SHELL_CONFIG.IN_DOCKER)      # bool: Running inside Docker?
+print(SHELL_CONFIG.DEBUG)          # bool: Debug mode enabled?
+
+# Version info
+print(SHELL_CONFIG.COMMIT_HASH)    # str: Git commit hash
+print(SHELL_CONFIG.BUILD_TIME)     # str: Build timestamp
+```
+
+## Storage Configuration
+
+Settings for storage, paths, and file handling:
+
+```python
+from archivebox.config import STORAGE_CONFIG
+
+# Directories
+print(STORAGE_CONFIG.TMP_DIR)              # Path: /tmp/archivebox
+print(STORAGE_CONFIG.LIB_DIR)              # Path: ~/.local/share/archivebox
+print(STORAGE_CONFIG.LIB_BIN_DIR)          # Path: lib/bin (for binaries)
+print(STORAGE_CONFIG.CUSTOM_TEMPLATES_DIR) # Path: Custom templates
+
+# File permissions
+print(STORAGE_CONFIG.OUTPUT_PERMISSIONS)     # str: '644'
+print(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS) # str: '755'
+
+# File naming
+print(STORAGE_CONFIG.RESTRICT_FILE_NAMES)  # str: 'windows'
+# Options: 'windows', 'unix', 'none'
+
+# Write behavior
+print(STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES)  # bool: Use atomic writes
+```
+
+## General Configuration
+
+General application settings:
+
+```python
+from archivebox.config import GENERAL_CONFIG
+
+# Tag parsing
+print(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN)  # str: '[,]'
+# Regex pattern for splitting tag strings
+```
+
+## Server Configuration
+
+Web server and UI settings:
+
+```python
+from archivebox.config import SERVER_CONFIG
+
+# Server binding
+print(SERVER_CONFIG.BIND_ADDR)        # str: '127.0.0.1:8000'
+print(SERVER_CONFIG.LISTEN_HOST)      # str: 'archivebox.localhost:8000'
+print(SERVER_CONFIG.ALLOWED_HOSTS)    # str: '*'
+
+# URLs
+print(SERVER_CONFIG.ADMIN_BASE_URL)    # str: Admin UI base URL
+print(SERVER_CONFIG.ARCHIVE_BASE_URL)  # str: Archive base URL
+print(SERVER_CONFIG.CSRF_TRUSTED_ORIGINS)  # str: Trusted CSRF origins
+
+# UI settings
+print(SERVER_CONFIG.SNAPSHOTS_PER_PAGE)  # int: 40
+print(SERVER_CONFIG.PREVIEW_ORIGINALS)   # bool: Show original content
+print(SERVER_CONFIG.FOOTER_INFO)         # str: Footer text
+
+# Public access
+print(SERVER_CONFIG.PUBLIC_INDEX)        # bool: Public index page?
+print(SERVER_CONFIG.PUBLIC_SNAPSHOTS)    # bool: Public snapshot access?
+print(SERVER_CONFIG.PUBLIC_ADD_VIEW)     # bool: Public add form?
+
+# Authentication
+print(SERVER_CONFIG.ADMIN_USERNAME)      # str | None
+print(SERVER_CONFIG.ADMIN_PASSWORD)      # str | None
+print(SERVER_CONFIG.SECRET_KEY)          # str: Django secret key
+
+# Reverse proxy
+print(SERVER_CONFIG.REVERSE_PROXY_USER_HEADER)  # str: 'Remote-User'
+print(SERVER_CONFIG.REVERSE_PROXY_WHITELIST)    # str: IP whitelist
+print(SERVER_CONFIG.LOGOUT_REDIRECT_URL)        # str: '/'
+```
+
+## Archiving Configuration
+
+Settings that control archiving behavior:
+
+```python
+from archivebox.config import ARCHIVING_CONFIG
+
+# Archive behavior
+print(ARCHIVING_CONFIG.ONLY_NEW)       # bool: Skip existing snapshots?
+print(ARCHIVING_CONFIG.OVERWRITE)      # bool: Overwrite existing?
+
+# Timeouts and limits
+print(ARCHIVING_CONFIG.TIMEOUT)        # int: 60 (seconds)
+print(ARCHIVING_CONFIG.MAX_URL_ATTEMPTS)  # int: 50
+
+# Browser settings
+print(ARCHIVING_CONFIG.RESOLUTION)     # str: '1440,2000'
+print(ARCHIVING_CONFIG.USER_AGENT)     # str: Custom user agent
+print(ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)  # bool: Verify SSL certs?
+print(ARCHIVING_CONFIG.COOKIES_FILE)   # Path | None: cookies.txt path
+
+# URL filtering
+print(ARCHIVING_CONFIG.URL_DENYLIST)   # str: Regex pattern
+print(ARCHIVING_CONFIG.URL_ALLOWLIST)  # str | None: Regex pattern
+
+# Compiled patterns (for matching)
+url_denylist_pattern = ARCHIVING_CONFIG.URL_DENYLIST_PTN  # re.Pattern
+url_allowlist_pattern = ARCHIVING_CONFIG.URL_ALLOWLIST_PTN  # re.Pattern | None
+
+if url_denylist_pattern.match('https://example.com/script.js'):
+    print('URL is denied')
+
+# Method filtering
+print(ARCHIVING_CONFIG.SAVE_ALLOWLIST)  # Dict[str, List[str]]
+print(ARCHIVING_CONFIG.SAVE_DENYLIST)   # Dict[str, List[str]]
+# Format: {regex_pattern: [method_names]}
+
+# Get compiled patterns for matching
+save_allowlist_ptns = ARCHIVING_CONFIG.SAVE_ALLOWLIST_PTNS  # Dict[re.Pattern, List[str]]
+save_denylist_ptns = ARCHIVING_CONFIG.SAVE_DENYLIST_PTNS    # Dict[re.Pattern, List[str]]
+
+# Personas
+print(ARCHIVING_CONFIG.DEFAULT_PERSONA)  # str: 'Default'
+```
+
+## Search Backend Configuration
+
+Settings for search functionality:
+
+```python
+from archivebox.config import SEARCH_BACKEND_CONFIG
+
+# Search backend
+print(SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND)   # bool: Enable indexing?
+print(SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND)  # bool: Enable search?
+print(SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE)  # str: 'ripgrep'
+# Options: 'ripgrep', 'sonic', 'sqlite'
+print(SEARCH_BACKEND_CONFIG.SEARCH_PROCESS_HTML)    # bool: Index HTML?
+```
+
+## Getting All Configuration
+
+Retrieve all configuration sections as a dictionary:
+
+```python
+from archivebox.config import get_CONFIG
+
+config = get_CONFIG()
+
+# Access sections
+shell = config['SHELL_CONFIG']
+storage = config['STORAGE_CONFIG']
+general = config['GENERAL_CONFIG']
+server = config['SERVER_CONFIG']
+archiving = config['ARCHIVING_CONFIG']
+search = config['SEARCHBACKEND_CONFIG']
+ldap = config['LDAP_CONFIG']
+
+# Print all settings
+for section_name, section_config in config.items():
+    print(f"\n{section_name}:")
+    for key, value in section_config.__dict__.items():
+        if not key.startswith('_'):
+            print(f"  {key}: {value}")
+```
+
+## Modifying Configuration Programmatically
+
+### Environment Variables
+
+The most common way to override configuration:
+
+```python
+import os
+
+# Set environment variables before importing ArchiveBox
+os.environ['ARCHIVEBOX_TIMEOUT'] = '120'
+os.environ['ARCHIVEBOX_RESOLUTION'] = '1920,1080'
+os.environ['ARCHIVEBOX_SAVE_SCREENSHOT'] = 'False'
+
+import archivebox
+from archivebox.config import ARCHIVING_CONFIG
+
+print(ARCHIVING_CONFIG.TIMEOUT)  # 120
+print(ARCHIVING_CONFIG.RESOLUTION)  # '1920,1080'
+```
+
+### Config File
+
+Modify `ArchiveBox.conf` in your data directory:
+
+```python
+from pathlib import Path
+from archivebox.config import CONSTANTS
+
+config_file = CONSTANTS.DATA_DIR / 'ArchiveBox.conf'
+
+# Read existing config
+lines = config_file.read_text().splitlines()
+
+# Modify or add settings
+new_lines = []
+for line in lines:
+    if line.startswith('TIMEOUT='):
+        new_lines.append('TIMEOUT=120')
+    else:
+        new_lines.append(line)
+
+# Add new setting if not present
+if not any(line.startswith('TIMEOUT=') for line in lines):
+    new_lines.append('TIMEOUT=120')
+
+# Write back
+config_file.write_text('\n'.join(new_lines) + '\n')
+```
+
+### Per-Snapshot Configuration
+
+Override configuration for specific snapshots:
+
+```python
+from archivebox.core.models import Snapshot
+
+snapshot = Snapshot.objects.first()
+
+# Set custom config for this snapshot
+snapshot.config = {
+    'TIMEOUT': 120,
+    'SAVE_SCREENSHOT': True,
+    'SAVE_PDF': False,
+}
+snapshot.save()
+
+# Config will be used when archiving this snapshot
+snapshot.archive()
+```
+
+### Per-Crawl Configuration
+
+Override configuration for all snapshots in a crawl:
+
+```python
+from archivebox.crawls.models import Crawl
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+user = User.objects.get(username='admin')
+
+crawl = Crawl.objects.create(
+    label='High-res screenshots',
+    urls='https://example.com',
+    max_depth=0,
+    created_by=user,
+    config={
+        'RESOLUTION': '1920,1080',
+        'SAVE_SCREENSHOT': True,
+        'SAVE_PDF': True,
+        'TIMEOUT': 120,
+    }
+)
+
+# All snapshots from this crawl will use these settings
+```
+
+## Configuration Merging
+
+Get merged configuration from multiple sources:
+
+```python
+from archivebox.config.configset import get_config
+from archivebox.core.models import Snapshot
+
+snapshot = Snapshot.objects.first()
+
+# Get fully merged config for this snapshot
+# (defaults + env + file + machine + crawl + snapshot)
+config = get_config(snapshot=snapshot)
+
+# Access merged values
+print(config['TIMEOUT'])        # Merged timeout value
+print(config['RESOLUTION'])     # Merged resolution
+print(config['SAVE_WGET'])      # bool
+
+# Or get config for a crawl
+from archivebox.crawls.models import Crawl
+crawl = Crawl.objects.first()
+config = get_config(crawl=crawl)
+```
+
+## Validation
+
+Some configuration sections have validation:
+
+```python
+from archivebox.config import ARCHIVING_CONFIG
+
+# This will print warnings if TIMEOUT < 5
+ARCHIVING_CONFIG.validate()
+
+# Check SSL validation setting (has side effects)
+if not ARCHIVING_CONFIG.CHECK_SSL_VALIDITY:
+    # SSL warnings are automatically disabled
+    print('SSL verification disabled')
+```
+
+## Examples
+
+### Change Timeout for All Future Archives
+
+```python
+import os
+os.environ['ARCHIVEBOX_TIMEOUT'] = '180'
+
+import archivebox
+from archivebox.core.models import Snapshot
+
+# All new archives will use 180s timeout
+snapshot = Snapshot.objects.first()
+snapshot.archive()  # Uses 180s timeout
+```
+
+### Create High-Resolution Screenshot Archive
+
+```python
+from archivebox.crawls.models import Crawl
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+user = User.objects.get(username='admin')
+
+crawl = Crawl.objects.create(
+    label='High-res screenshots',
+    urls='https://example.com\nhttps://another.com',
+    max_depth=0,
+    created_by=user,
+    config={
+        'RESOLUTION': '1920,1080',
+        'TIMEOUT': 120,
+        'SAVE_SCREENSHOT': True,
+        'SAVE_PDF': True,
+        # Disable other methods
+        'SAVE_WGET': False,
+        'SAVE_DOM': False,
+        'SAVE_SINGLEFILE': False,
+    }
+)
+
+# Archive with custom config
+for snapshot in crawl.snapshot_set.all():
+    snapshot.archive()
+```
+
+### Check Binary Availability
+
+```python
+from archivebox.machine.models import Binary
+
+# Get binary with configuration
+wget = Binary.objects.filter(name='wget').first()
+if wget and wget.is_valid:
+    print(f"wget version: {wget.version}")
+    print(f"wget path: {wget.binpath}")
+    
+    # Apply overrides
+    wget.overrides = {'TIMEOUT': '120'}
+    wget.save()
+```
+
+### Filter URLs by Configuration
+
+```python
+from archivebox.config import ARCHIVING_CONFIG
+
+test_urls = [
+    'https://example.com/page.html',
+    'https://example.com/script.js',
+    'https://example.com/style.css',
+]
+
+# Check against denylist
+for url in test_urls:
+    if ARCHIVING_CONFIG.URL_DENYLIST_PTN.match(url):
+        print(f"Denied: {url}")
+    else:
+        print(f"Allowed: {url}")
+```
+
+### Export Configuration
+
+```python
+import json
+from archivebox.config import get_CONFIG
+
+config = get_CONFIG()
+
+# Export to JSON (for backup/sharing)
+config_dict = {}
+for section_name, section_config in config.items():
+    config_dict[section_name] = {
+        k: str(v) for k, v in section_config.__dict__.items()
+        if not k.startswith('_')
+    }
+
+with open('config_backup.json', 'w') as f:
+    json.dump(config_dict, f, indent=2)
+
+print("Configuration exported to config_backup.json")
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Python API Overview" icon="python" href="/api/python/overview">
+    Basic Python API usage
+  </Card>
+  <Card title="Models Reference" icon="database" href="/api/python/models">
+    Django models documentation
+  </Card>
+  <Card title="Extractors API" icon="puzzle-piece" href="/api/python/extractors">
+    Using and creating extractors
+  </Card>
+  <Card title="Configuration Guide" icon="sliders" href="/config/overview">
+    User-facing configuration guide
+  </Card>
+</CardGroup>

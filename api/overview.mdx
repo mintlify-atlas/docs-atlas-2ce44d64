@@ -1,0 +1,175 @@
+---
+title: REST API Overview
+description: Introduction to the ArchiveBox REST API
+---
+
+<Warning>
+The ArchiveBox REST API is currently in **ALPHA** status and may change in future releases.
+</Warning>
+
+## Introduction
+
+ArchiveBox provides a REST API for programmatic access to your web archiving server. The API is built with [django-ninja](https://django-ninja.dev/) and follows RESTful conventions.
+
+## API Base URL
+
+The API is available at:
+
+```
+http://your-archivebox-server/api/v1/
+```
+
+For example, if running locally:
+- **Local development**: `http://127.0.0.1:8000/api/v1/`
+- **Docker setup**: `http://web.archivebox.localhost:8000/api/v1/`
+
+## Interactive API Documentation
+
+ArchiveBox provides an interactive Swagger UI for exploring and testing the API:
+
+```
+http://your-archivebox-server/api/v1/docs
+```
+
+The Swagger UI allows you to:
+- Browse all available endpoints
+- View request/response schemas
+- Test API calls directly from your browser
+- Generate code examples
+
+## API Status
+
+<Warning>
+**ALPHA Status**: This API is still in early development and may change. Key considerations:
+
+- API endpoints may be added, modified, or removed
+- Request/response schemas may change
+- Breaking changes may occur between versions
+- Not all features are exposed via the API yet
+</Warning>
+
+## Available Endpoints
+
+The API is organized into several categories:
+
+### Core Models (`/api/v1/core/`)
+- **Snapshots** - Manage archived URLs and their metadata
+- **ArchiveResults** - Access individual archiving outputs (PDF, screenshot, etc.)
+- **Tags** - Organize snapshots with tags
+
+### Crawls (`/api/v1/crawls/`)
+- **Crawls** - Manage crawl sessions (groups of snapshots from a single import)
+
+### Authentication (`/api/v1/auth/`)
+- **API Tokens** - Generate and validate API tokens
+
+### CLI (`/api/v1/cli/`)
+- **Command Execution** - Run ArchiveBox CLI commands via API
+
+### Workers (`/api/v1/workers/`)
+- **Background Workers** - Monitor and manage background processing
+
+### Machine (`/api/v1/machine/`)
+- **System Info** - View server and system information
+
+## Response Format
+
+All API responses return JSON with consistent structure:
+
+```json
+{
+  "TYPE": "core.models.Snapshot",
+  "id": "01234567-89ab-cdef-0123-456789abcdef",
+  "url": "https://example.com",
+  "timestamp": "2024-01-15T10:30:00Z",
+  ...
+}
+```
+
+### Error Responses
+
+Errors return JSON with error details:
+
+```json
+{
+  "succeeded": false,
+  "message": "ObjectDoesNotExist: Snapshot matching query does not exist.",
+  "errors": [
+    "Traceback details..."
+  ]
+}
+```
+
+Common HTTP status codes:
+- `200` - Success
+- `400` - Bad request (invalid parameters)
+- `403` - Forbidden (authentication failed or insufficient permissions)
+- `404` - Resource not found
+- `503` - Service error
+
+## Authentication
+
+API access requires authentication. See the [Authentication](/api/authentication) page for details on:
+
+- API token generation
+- Authentication methods
+- Permission requirements
+
+## Pagination
+
+List endpoints support pagination with the following query parameters:
+
+- `limit` - Number of items per page (default: 200, max: 500)
+- `offset` - Number of items to skip
+- `page` - Page number (alternative to offset)
+
+Paginated responses include:
+
+```json
+{
+  "total_items": 1000,
+  "total_pages": 5,
+  "page": 0,
+  "limit": 200,
+  "offset": 0,
+  "num_items": 200,
+  "items": [...]
+}
+```
+
+## Filtering
+
+Many list endpoints support filtering via query parameters. See individual endpoint documentation for available filters.
+
+Example:
+```bash
+GET /api/v1/core/snapshots?search=example.com&status=succeeded
+```
+
+## CORS and Security
+
+<Note>
+The API uses token-based authentication and does not set session cookies by default. This allows cross-origin API access when properly configured.
+</Note>
+
+Security features:
+- All endpoints require superuser authentication
+- API responses include `Cache-Control: no-store` header
+- Debug headers include execution details (stdout/stderr)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Set up API tokens and authentication
+  </Card>
+  <Card title="Snapshots API" icon="camera" href="/api/snapshots">
+    Manage archived snapshots
+  </Card>
+  <Card title="Crawls API" icon="spider" href="/api/crawls">
+    Work with crawl sessions
+  </Card>
+  <Card title="Tags API" icon="tag" href="/api/tags">
+    Organize with tags
+  </Card>
+</CardGroup>

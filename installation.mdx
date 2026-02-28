@@ -1,0 +1,367 @@
+---
+title: Installation
+description: Install ArchiveBox on Linux, macOS, or Windows using your preferred method
+icon: download
+---
+
+ArchiveBox can be installed in several ways depending on your operating system and preferences. Choose the method that works best for you.
+
+## Supported Systems
+
+<CardGroup cols={3}>
+  <Card title="Operating Systems" icon="computer">
+    - Linux/BSD
+    - macOS
+    - Windows (via Docker)
+  </Card>
+  <Card title="CPU Architectures" icon="microchip">
+    - amd64 (x86_64)
+    - arm64
+    - arm7 (Raspberry Pi 3+)
+  </Card>
+  <Card title="Python Version" icon="python">
+    Python 3.11 or higher
+    
+    (3.13+ recommended)
+  </Card>
+</CardGroup>
+
+## Installation Methods Comparison
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose" icon="docker" color="#0db7ed">
+    **Recommended for most users**
+    
+    ✅ Easiest setup and updates  
+    ✅ Best security isolation  
+    ✅ All dependencies included  
+    ✅ Works on all platforms  
+    
+    [Quick Install →](#docker-compose)
+  </Card>
+
+  <Card title="pip" icon="python" color="#3776ab">
+    **For Python developers**
+    
+    ✅ Native performance  
+    ✅ Easy to customize  
+    ✅ Integrates with Python tools  
+    ⚠️ Requires manual dependency setup  
+    
+    [Quick Install →](#pip)
+  </Card>
+
+  <Card title="apt" icon="ubuntu" color="#E95420">
+    **For Ubuntu/Debian users**
+    
+    ✅ System package management  
+    ✅ Automatic updates  
+    ⚠️ May lag behind pip version  
+    ⚠️ Limited to Debian-based systems  
+    
+    [Quick Install →](#apt)
+  </Card>
+
+  <Card title="brew" icon="apple" color="#000000">
+    **For macOS users**
+    
+    ✅ Native macOS integration  
+    ✅ Easy dependency management  
+    ⚠️ May lag behind pip version  
+    ⚠️ macOS only  
+    
+    [Quick Install →](#brew)
+  </Card>
+</CardGroup>
+
+---
+
+## Docker Compose
+
+<Note>
+  **Recommended for most users** - Docker Compose provides the easiest installation, best security, and includes all dependencies out-of-the-box.
+</Note>
+
+### Prerequisites
+
+- Docker and Docker Compose installed ([Get Docker](https://docs.docker.com/get-docker/))
+
+### Installation
+
+```bash
+# 1. Create a directory for ArchiveBox
+mkdir -p ~/archivebox/data && cd ~/archivebox
+
+# 2. Download the docker-compose.yml file
+curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
+
+# 3. Edit the configuration (optional but recommended)
+nano docker-compose.yml  # Set ADMIN_USERNAME, ADMIN_PASSWORD, etc.
+
+# 4. Initialize ArchiveBox
+docker compose run archivebox init --setup
+
+# 5. Start the server
+docker compose up
+```
+
+Open http://web.archivebox.localhost:8000 in your browser!
+
+<Accordion title="Docker Compose Configuration Options">
+  Key settings you can customize in `docker-compose.yml`:
+
+  ```yaml
+  environment:
+    # Admin user (created on first run)
+    - ADMIN_USERNAME=admin
+    - ADMIN_PASSWORD=YourSecurePassword
+    
+    # Network settings
+    - LISTEN_HOST=archivebox.localhost:8000
+    - ALLOWED_HOSTS=*
+    
+    # Public access settings
+    - PUBLIC_INDEX=True          # Allow viewing snapshot list
+    - PUBLIC_SNAPSHOTS=True      # Allow viewing snapshot content
+    - PUBLIC_ADD_VIEW=False      # Allow submitting URLs (keep False!)
+    
+    # Performance settings
+    - TIMEOUT=60                 # Increase for slow sites
+    - YTDLP_MAX_SIZE=750m        # Max video/audio file size
+    
+    # Privacy settings
+    - SAVE_ARCHIVEDOTORG=True    # Submit to Archive.org
+    - CHECK_SSL_VALIDITY=True    # Enforce SSL verification
+  ```
+</Accordion>
+
+For more details, see the [Docker documentation](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker).
+
+---
+
+## pip
+
+Install ArchiveBox as a Python package using pip.
+
+### Prerequisites
+
+- Python 3.11 or higher (3.13+ recommended)
+- Node.js 18 or higher
+- Git, wget, curl
+
+### Installation
+
+```bash
+# 1. Install ArchiveBox and core dependencies
+pip install archivebox yt-dlp playwright
+
+# 2. Install Chromium browser
+playwright install --with-deps chromium
+
+# 3. Verify installation
+archivebox version
+
+# 4. Create a data directory and initialize
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
+archivebox init --setup
+
+# 5. Start the server (optional)
+archivebox server 0.0.0.0:8000
+```
+
+<Warning>
+  After installing with pip, you may need to install additional system dependencies:
+  
+  **Ubuntu/Debian:**
+  ```bash
+  sudo apt install python3 python3-pip python3-venv git curl wget ripgrep
+  ```
+  
+  **macOS:**
+  ```bash
+  brew install python node git wget curl ripgrep
+  ```
+</Warning>
+
+For detailed instructions, see the [pip installation guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup).
+
+---
+
+## apt
+
+Install ArchiveBox via the Debian/Ubuntu package repository.
+
+### Prerequisites
+
+- Ubuntu, Debian, or derivative Linux distribution
+
+### Installation
+
+<Note>
+  The apt package may lag behind the latest pip release. After installing via apt, consider upgrading with pip to get the latest version.
+</Note>
+
+See the [apt installation guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup) for current instructions.
+
+After installing via apt, upgrade to the latest version:
+
+```bash
+# Upgrade to latest version with pip
+pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+playwright install --with-deps chromium
+
+# Verify installation
+archivebox version
+
+# Initialize in a data directory
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
+archivebox init --setup
+```
+
+---
+
+## brew
+
+Install ArchiveBox via Homebrew on macOS.
+
+### Prerequisites
+
+- macOS
+- Homebrew installed ([Get Homebrew](https://brew.sh/))
+
+### Installation
+
+```bash
+# 1. Add the ArchiveBox tap
+brew tap archivebox/archivebox
+
+# 2. Install ArchiveBox
+brew install archivebox
+
+# 3. Upgrade to latest version (recommended)
+pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+playwright install --with-deps chromium
+
+# 4. Verify installation
+archivebox version
+
+# 5. Initialize in a data directory
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
+archivebox init --setup
+
+# 6. Start the server (optional)
+archivebox server 0.0.0.0:8000
+```
+
+For more details, see the [macOS installation guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup).
+
+---
+
+## Other Installation Methods
+
+<AccordionGroup>
+  <Accordion title="Auto-setup Script (Linux/macOS)">
+    A convenience script that automatically detects your system and installs ArchiveBox:
+
+    ```bash
+    curl -fsSL 'https://get.archivebox.io' | bash
+    ```
+
+    **Note**: Review the [script source](https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh) before running. See ["Against curl | sh"](https://docs.sweeting.me/s/against-curl-sh) for security considerations.
+  </Accordion>
+
+  <Accordion title="Arch Linux (AUR)">
+    ```bash
+    yay -S archivebox
+    ```
+    
+    Maintained by [@jasongodev](https://github.com/jasongodev).
+  </Accordion>
+
+  <Accordion title="FreeBSD">
+    ```bash
+    curl -fsSL 'https://get.archivebox.io' | bash
+    ```
+    
+    Uses `pkg` + `pip3` under the hood.
+  </Accordion>
+
+  <Accordion title="Nix/NixOS">
+    ```bash
+    nix-env --install archivebox
+    ```
+    
+    Maintained by [@siraben](https://github.com/siraben).
+  </Accordion>
+
+  <Accordion title="Self-Hosting Platforms">
+    ArchiveBox is available on several self-hosting platforms:
+    
+    - [UnRaid](https://unraid.net/community/apps?q=archivebox)
+    - [Proxmox](https://community-scripts.github.io/ProxmoxVE/scripts?id=archivebox)
+    - [Yunohost](https://github.com/YunoHost-Apps/archivebox_ynh)
+    - [Cloudron](https://www.cloudron.io/store/io.archivebox.cloudronapp.html)
+    - [Saltbox](https://docs.saltbox.dev/sandbox/apps/archivebox/)
+    - [Portainer](https://portainer-templates.as93.net/archivebox)
+    - [Runtipi](https://runtipi.io/docs/apps-available)
+  </Accordion>
+
+  <Accordion title="Electron Desktop App (Alpha)">
+    A desktop application wrapper for ArchiveBox is available for macOS (Linux/Windows coming soon):
+    
+    Download: [ArchiveBox.app.zip](https://github.com/ArchiveBox/ArchiveBox/releases/download/v0.6.2/Electron-ArchiveBox-macOS-x64-0.6.2.app.zip)
+    
+    See [electron-archivebox repo](https://github.com/ArchiveBox/electron-archivebox) for more info.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## System Requirements
+
+### Minimum Requirements
+
+- **RAM**: 512 MB (1 GB+ recommended)
+- **Disk**: 1 GB for application + storage for archived content
+- **CPU**: Any modern CPU (single core sufficient)
+
+### Recommended Specifications
+
+- **RAM**: 2 GB+ for better performance
+- **Disk**: 10 GB+ for application and archives
+- **CPU**: Multi-core for faster parallel archiving
+- **Network**: Stable internet connection
+
+<Note>
+  Storage requirements grow with your archive size. Plan for 1-50 MB per archived page depending on the extractor methods enabled and the content type.
+</Note>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Learn how to archive your first URL
+  </Card>
+  <Card title="Configuration" icon="gear" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">
+    Customize ArchiveBox settings
+  </Card>
+  <Card title="Usage Guide" icon="book" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">
+    Learn all the features and commands
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting">
+    Get help with common issues
+  </Card>
+</CardGroup>
+
+---
+
+## Getting Help
+
+If you run into issues:
+
+1. Check the [Troubleshooting Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
+2. Search [GitHub Issues](https://github.com/ArchiveBox/ArchiveBox/issues)
+3. Ask in the [Web Archiving Community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
+4. [Open a new issue](https://github.com/ArchiveBox/ArchiveBox/issues/new) with details about your problem

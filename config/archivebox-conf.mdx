@@ -1,0 +1,347 @@
+---
+title: ArchiveBox.conf File
+description: ArchiveBox.conf file format and configuration
+---
+
+# ArchiveBox.conf File
+
+The `ArchiveBox.conf` file is the primary configuration file for ArchiveBox. It's located in your data directory and uses an INI-style format.
+
+## File Location
+
+The `ArchiveBox.conf` file is created automatically when you run `archivebox init`:
+
+```bash
+~/archivebox/data/ArchiveBox.conf
+```
+
+Or wherever your ArchiveBox data directory is located.
+
+## File Format
+
+The configuration file uses INI format with sections:
+
+```ini
+[GENERAL_CONFIG]
+OUTPUT_PERMISSIONS = 755
+TIMEOUT = 60
+CHECK_SSL_VALIDITY = True
+
+[SERVER_CONFIG]
+PUBLIC_INDEX = True
+PUBLIC_SNAPSHOTS = True
+
+[ARCHIVE_METHOD_TOGGLES]
+SAVE_PDF = True
+SAVE_SCREENSHOT = True
+SAVE_DOM = True
+
+[DEPENDENCY_CONFIG]
+CHROME_BINARY = chromium
+USE_WGET = True
+```
+
+## Configuration Sections
+
+### GENERAL_CONFIG
+
+Core settings for ArchiveBox behavior:
+
+<ParamField path="OUTPUT_PERMISSIONS" type="string" default="755">
+  File permissions for archived content (octal notation).
+</ParamField>
+
+<ParamField path="RESTRICT_FILE_NAMES" type="string" default="windows">
+  Restrict filenames to be compatible with specific filesystems. Options: `windows`, `unix`.
+</ParamField>
+
+<ParamField path="ONLY_NEW" type="boolean" default="False">
+  Only archive URLs that haven't been archived before.
+</ParamField>
+
+<ParamField path="TIMEOUT" type="integer" default="60">
+  Timeout in seconds for most archiving operations.
+</ParamField>
+
+<ParamField path="YTDLP_TIMEOUT" type="integer" default="3600">
+  Timeout in seconds specifically for yt-dlp operations (media downloads).
+</ParamField>
+
+<ParamField path="URL_BLACKLIST" type="string">
+  Regular expression pattern for URLs to exclude from archiving.
+  
+  ```ini
+  URL_BLACKLIST = (://(.*\.)?facebook\.com)|(://(.*\.)?ebay\.com)|(.*\.exe$)
+  ```
+</ParamField>
+
+<ParamField path="CHECK_SSL_VALIDITY" type="boolean" default="True">
+  Verify SSL certificates when archiving.
+</ParamField>
+
+<ParamField path="RESOLUTION" type="string" default="1440,900">
+  Screen resolution for screenshots and PDF generation.
+</ParamField>
+
+<ParamField path="GIT_DOMAINS" type="string" default="github.com,bitbucket.org,gitlab.com">
+  Domains to treat as git repositories.
+</ParamField>
+
+<ParamField path="COOKIES_FILE" type="string">
+  Path to a Netscape-format cookies.txt file for authenticated archiving.
+  
+  ```ini
+  COOKIES_FILE = /data/cookies.txt
+  ```
+</ParamField>
+
+### SERVER_CONFIG
+
+Web UI and server settings:
+
+<ParamField path="SECRET_KEY" type="string">
+  Django secret key for session security. Auto-generated on first run.
+</ParamField>
+
+<ParamField path="DEBUG" type="boolean" default="False">
+  Enable Django debug mode (never use in production).
+</ParamField>
+
+<ParamField path="PUBLIC_INDEX" type="boolean" default="True">
+  Allow anonymous users to view the snapshot list.
+</ParamField>
+
+<ParamField path="PUBLIC_SNAPSHOTS" type="boolean" default="True">
+  Allow anonymous users to view snapshot content.
+</ParamField>
+
+<ParamField path="PUBLIC_ADD_VIEW" type="boolean" default="False">
+  Allow anonymous users to submit new URLs.
+</ParamField>
+
+<ParamField path="FOOTER_INFO" type="string">
+  Custom footer text for the web UI.
+  
+  ```ini
+  FOOTER_INFO = Content is hosted for personal archiving purposes only.
+  ```
+</ParamField>
+
+### ARCHIVE_METHOD_TOGGLES
+
+Enable or disable specific archiving methods:
+
+<ParamField path="SAVE_TITLE" type="boolean" default="True">
+  Extract and save page title.
+</ParamField>
+
+<ParamField path="SAVE_FAVICON" type="boolean" default="True">
+  Download and save favicon.
+</ParamField>
+
+<ParamField path="SAVE_WGET" type="boolean" default="True">
+  Save HTML using wget.
+</ParamField>
+
+<ParamField path="SAVE_WGET_REQUISITES" type="boolean" default="True">
+  Save page requisites (CSS, JS, images) with wget.
+</ParamField>
+
+<ParamField path="SAVE_WARC" type="boolean" default="True">
+  Create WARC files using wget.
+</ParamField>
+
+<ParamField path="SAVE_PDF" type="boolean" default="True">
+  Generate PDF snapshots using Chrome.
+</ParamField>
+
+<ParamField path="SAVE_SCREENSHOT" type="boolean" default="True">
+  Capture screenshots using Chrome.
+</ParamField>
+
+<ParamField path="SAVE_DOM" type="boolean" default="True">
+  Save DOM snapshot using Chrome.
+</ParamField>
+
+<ParamField path="SAVE_SINGLEFILE" type="boolean" default="True">
+  Save page as single HTML file using SingleFile.
+</ParamField>
+
+<ParamField path="SAVE_READABILITY" type="boolean" default="True">
+  Extract article text using Readability.
+</ParamField>
+
+<ParamField path="SAVE_GIT" type="boolean" default="True">
+  Clone git repositories.
+</ParamField>
+
+<ParamField path="SAVE_YTDLP" type="boolean" default="False">
+  Download media using yt-dlp (disabled by default due to size).
+</ParamField>
+
+<ParamField path="SAVE_ARCHIVE_DOT_ORG" type="boolean" default="True">
+  Submit URLs to Archive.org.
+</ParamField>
+
+### DEPENDENCY_CONFIG
+
+Configure archiving tools and binaries:
+
+<ParamField path="USE_CURL" type="boolean" default="True">
+  Enable curl for header fetching.
+</ParamField>
+
+<ParamField path="USE_WGET" type="boolean" default="True">
+  Enable wget for HTML/WARC saving.
+</ParamField>
+
+<ParamField path="USE_CHROME" type="boolean" default="True">
+  Enable Chrome/Chromium for screenshots, PDF, etc.
+</ParamField>
+
+<ParamField path="USE_YOUTUBEDL" type="boolean" default="True">
+  Enable yt-dlp for media downloads.
+</ParamField>
+
+<ParamField path="USE_GIT" type="boolean" default="True">
+  Enable git for repository cloning.
+</ParamField>
+
+<ParamField path="CURL_BINARY" type="string" default="curl">
+  Path to curl binary.
+</ParamField>
+
+<ParamField path="GIT_BINARY" type="string" default="git">
+  Path to git binary.
+</ParamField>
+
+<ParamField path="WGET_BINARY" type="string" default="wget">
+  Path to wget binary.
+</ParamField>
+
+<ParamField path="YOUTUBEDL_BINARY" type="string" default="yt-dlp">
+  Path to yt-dlp binary.
+</ParamField>
+
+<ParamField path="CHROME_BINARY" type="string" default="chromium">
+  Path to Chrome/Chromium binary.
+</ParamField>
+
+<ParamField path="CHROME_USER_DATA_DIR" type="string">
+  Path to Chrome user profile directory for authenticated archiving.
+  
+  ```ini
+  CHROME_USER_DATA_DIR = ~/.config/google-chrome/Default
+  ```
+</ParamField>
+
+<ParamField path="CHROME_HEADLESS" type="boolean" default="True">
+  Run Chrome in headless mode.
+</ParamField>
+
+<ParamField path="CHROME_SANDBOX" type="boolean" default="True">
+  Enable Chrome sandbox (disable only if running as root in Docker).
+</ParamField>
+
+## Editing the Configuration
+
+### Manual Editing
+
+Edit the file directly:
+
+```bash
+cd ~/archivebox/data
+nano ArchiveBox.conf
+```
+
+Add or modify settings:
+
+```ini
+[GENERAL_CONFIG]
+TIMEOUT = 120
+CHECK_SSL_VALIDITY = False
+
+[ARCHIVE_METHOD_TOGGLES]
+SAVE_PDF = False
+SAVE_YTDLP = True
+```
+
+Restart ArchiveBox for changes to take effect.
+
+### Using archivebox config
+
+The recommended way to modify settings:
+
+```bash
+# Set a value (automatically updates ArchiveBox.conf)
+archivebox config --set TIMEOUT=120
+archivebox config --set CHROME_BINARY=chromium
+archivebox config --set SAVE_PDF=False
+
+# View current configuration
+archivebox config
+
+# View a specific value
+archivebox config --get TIMEOUT
+```
+
+## Example Configurations
+
+### Minimal Archiving (Fast)
+
+Disable heavy operations for faster archiving:
+
+```ini
+[ARCHIVE_METHOD_TOGGLES]
+SAVE_PDF = False
+SAVE_SCREENSHOT = False
+SAVE_WARC = False
+SAVE_YTDLP = False
+SAVE_ARCHIVE_DOT_ORG = False
+```
+
+### Maximum Archiving (Complete)
+
+Enable everything for comprehensive archives:
+
+```ini
+[GENERAL_CONFIG]
+TIMEOUT = 120
+YTDLP_TIMEOUT = 7200
+
+[ARCHIVE_METHOD_TOGGLES]
+SAVE_YTDLP = True
+SAVE_GIT = True
+SAVE_ARCHIVE_DOT_ORG = True
+```
+
+### Private/Stealth Mode
+
+Disable external services:
+
+```ini
+[ARCHIVE_METHOD_TOGGLES]
+SAVE_ARCHIVE_DOT_ORG = False
+
+[SERVER_CONFIG]
+PUBLIC_INDEX = False
+PUBLIC_SNAPSHOTS = False
+```
+
+## Configuration Reference
+
+For the complete list of all configuration options, see:
+
+- [Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)
+- [Default ArchiveBox.conf](https://github.com/ArchiveBox/ArchiveBox/blob/dev/etc/ArchiveBox.conf.default)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dependencies" icon="puzzle-piece" href="/config/dependencies">
+    Configure extractors and dependencies
+  </Card>
+  <Card title="Environment Variables" icon="terminal" href="/config/environment-variables">
+    Use environment variables for configuration
+  </Card>
+</CardGroup>

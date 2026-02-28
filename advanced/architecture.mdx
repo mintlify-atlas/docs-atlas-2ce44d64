@@ -1,0 +1,201 @@
+---
+title: System Architecture
+description: Understanding ArchiveBox's architecture and plugin system
+---
+
+ArchiveBox is built with a modular plugin-based architecture that separates concerns and allows for flexible customization.
+
+## Overall Architecture
+
+ArchiveBox uses a Django-based backend with a plugin system for extensibility. The core components include:
+
+- **Django Backend**: Manages data models, migrations, and the admin interface
+- **Plugin System**: Modular extractors, parsers, and integrations
+- **CLI Interface**: Command-line tools for all operations
+- **Web UI**: Browser-based interface for managing archives
+- **Storage Layer**: File-based archive with SQLite index
+
+## Core Data Models
+
+### Crawl Model
+
+A Crawl represents a single archiving operation initiated by the `add` command.
+
+- Groups multiple Snapshots from a single `add` command
+- Each `add` creates one Crawl with one or more Snapshots
+- Stores metadata about the crawling operation (depth, configuration, etc.)
+
+**Key Changes in 0.9.x**:
+- Seed model was removed - crawls now store URLs directly
+- Simplified relationship between Crawls and Snapshots
+
+### Snapshot Model
+
+A Snapshot represents a single URL that has been archived.
+
+- Contains metadata: URL, timestamp, title, status
+- Links to ArchiveResult entries for each extraction method
+- Belongs to a Crawl
+- Can have multiple Tags
+
+### ArchiveResult Model
+
+An ArchiveResult represents the output from a single extraction method for a Snapshot.
+
+Examples:
+- Screenshot PNG
+- PDF output
+- WARC file
+- DOM HTML
+- SingleFile HTML
+
+Each ArchiveResult tracks:
+- Status (success, failed, skipped)
+- Output path
+- Start/end time
+- Command used
+- Output size
+
+## Plugin System
+
+ArchiveBox uses a modular plugin architecture that separates different types of functionality.
+
+### Plugin Types
+
+#### Extractors
+
+Extractors capture content from web pages:
+
+- **dom**: DOM snapshot extraction
+- **pdf**: Generate PDF snapshots
+- **screenshot**: Generate screenshots
+- **singlefile**: SingleFile archival
+- **title**: Extract page title
+- **favicon**: Extract site favicon
+- **headers**: Capture HTTP headers
+- **media**: Download audio/video with yt-dlp
+- **git**: Clone git repositories
+
+#### Parsers
+
+Parsers extract URLs from various input formats:
+
+- **generic_txt**: Plain text URL lists
+- **generic_html**: HTML files with links
+- **generic_rss**: RSS/Atom feeds
+- **generic_json**: JSON files
+- **netscape_bookmarks**: Netscape bookmark format
+
+#### Chrome-Dependent Plugins
+
+Many plugins use Chrome via the Chrome DevTools Protocol (CDP):
+
+**Main Chrome Plugin**:
+- `chrome` - Core Chrome integration (CDP, launch, navigation)
+
+**Metadata Extraction** (using CDP):
+- `dns` - DNS resolution info
+- `ssl` - SSL certificate info
+- `headers` - HTTP response headers
+- `redirects` - Capture redirect chains
+- `responses` - Capture network responses
+- `consolelog` - Capture console.log output
+- `accessibility` - Extract accessibility tree
+- `seo` - Extract SEO metadata
+
+**Browser Extensions** (controlled via CDP):
+- `ublock` - uBlock Origin ad blocking
+- `istilldontcareaboutcookies` - Cookie banner dismissal
+- `twocaptcha` - CAPTCHA solver integration
+
+**Page Preparation**:
+- `modalcloser` - Modal dialog dismissal
+- `infiniscroll` - Infinite scroll handler
+
+**Main Outputs**:
+- `dom` - DOM snapshot extraction
+- `pdf` - PDF generation
+- `screenshot` - Screenshot capture
+- `singlefile` - SingleFile archival
+
+### Plugin Dependency Rules
+
+<Warning>
+Plugins **must not depend on ArchiveBox core or Django**. They should be self-contained modules.
+</Warning>
+
+**Exception**: Chrome-related plugins can depend on:
+- `archivebox/plugins/chrome/chrome_utils.js` - Shared Chrome operations API
+- `archivebox/plugins/chrome/tests/chrome_test_utils.py` - Testing utilities
+
+This keeps plugins modular and testable in isolation.
+
+## Archive Storage Layout
+
+ArchiveBox stores data in a structured filesystem layout:
+
+```
+DATA_DIR/
+├── index.sqlite3              # Main database
+├── ArchiveBox.conf            # Configuration file
+├── logs/                      # Application logs
+└── archive/
+    └── {snapshot_id}/         # One folder per snapshot
+        ├── index.html         # Human-readable index
+        ├── index.json         # Machine-readable metadata
+        ├── screenshot.png     # Screenshot
+        ├── output.pdf         # PDF snapshot
+        ├── singlefile.html    # SingleFile archive
+        ├── dom.html           # DOM snapshot
+        ├── media/             # Downloaded media files
+        ├── git/               # Git repository clones
+        └── warc/              # WARC files
+```
+
+Each snapshot is entirely self-contained in its folder, making the archive portable and easy to browse without running ArchiveBox.
+
+## Database Schema
+
+ArchiveBox uses SQLite for its database with Django ORM for schema management.
+
+### Schema Evolution
+
+- **0.4.x**: First Django version. Tags as comma-separated string, no ArchiveResult model
+- **0.7.x**: Tag model with M2M relationships, ArchiveResult model, AutoField PKs
+- **0.8.x**: Crawl/Seed models, UUID PKs, status fields, depth/retry_at
+- **0.9.x**: Seed model removed, seed_id FK removed from Crawl
+
+### Key Tables
+
+- `core_snapshot`: Main snapshot records
+- `core_archiveresult`: Individual extraction results
+- `core_crawl`: Crawling sessions
+- `core_tag`: Tag definitions
+- `core_snapshot_tags`: M2M relationship table
+- `django_migrations`: Migration history
+
+## Request Flow
+
+When you run `archivebox add <url>`:
+
+1. **URL Parsing**: Input is parsed to extract URLs
+2. **Crawl Creation**: A new Crawl record is created
+3. **Snapshot Creation**: One or more Snapshot records are created
+4. **Extraction**: Each enabled extractor runs:
+   - Creates an ArchiveResult record
+   - Executes extraction (screenshot, PDF, etc.)
+   - Updates ArchiveResult with status and output path
+5. **Indexing**: Updates the search index
+6. **Output**: Generates index.html and index.json for the snapshot
+
+## Extension Points
+
+You can extend ArchiveBox in several ways:
+
+- **Custom Plugins**: Add new extractors or parsers
+- **Django Apps**: Extend the Django backend
+- **Python API**: Import and use ArchiveBox as a library
+- **REST API**: Integrate via HTTP API (alpha)
+- **Webhooks**: Trigger external actions on events
+
+For plugin development details, see the [Custom Plugins](/plugins/custom-plugins) documentation.

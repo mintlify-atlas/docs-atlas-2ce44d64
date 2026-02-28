@@ -1,0 +1,342 @@
+---
+title: 'Homebrew Installation'
+description: 'Install ArchiveBox on macOS using Homebrew'
+icon: 'apple'
+---
+
+Install ArchiveBox using Homebrew, the package manager for macOS.
+
+## Prerequisites
+
+- **Supported System**: macOS only
+- **Homebrew**: Install [Homebrew](https://brew.sh/#install) if not already installed
+
+<Note>
+The Homebrew package may lag behind the official pip package. After installing with Homebrew, we recommend upgrading with pip to get the latest version.
+</Note>
+
+## Installation
+
+<Steps>
+  <Step title="Install Homebrew">
+    If you don't have Homebrew installed:
+    
+    ```bash
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    ```
+  </Step>
+
+  <Step title="Add ArchiveBox tap and install">
+    Add the ArchiveBox tap and install the package:
+    
+    ```bash
+    brew tap archivebox/archivebox
+    brew install archivebox
+    ```
+  </Step>
+
+  <Step title="Upgrade to latest version (recommended)">
+    Update to the newest version using pip:
+    
+    ```bash
+    # Update to latest version
+    pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+    
+    # Install Chromium and system dependencies
+    playwright install --with-deps chromium
+    
+    # Verify installation
+    archivebox version
+    ```
+    
+    <Note>
+    The Homebrew package sometimes falls behind the latest release. Using pip ensures you have the most recent version.
+    </Note>
+  </Step>
+
+  <Step title="Create a data directory">
+    Create a directory for your ArchiveBox collection:
+    
+    ```bash
+    mkdir -p ~/archivebox/data && cd ~/archivebox/data
+    ```
+  </Step>
+
+  <Step title="Initialize ArchiveBox">
+    Initialize your collection:
+    
+    ```bash
+    archivebox init --setup
+    ```
+    
+    The `--setup` flag automatically installs and links JavaScript dependencies.
+  </Step>
+
+  <Step title="Start the server (optional)">
+    Launch the web interface:
+    
+    ```bash
+    archivebox server 0.0.0.0:8000
+    ```
+    
+    Access the server at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+  </Step>
+</Steps>
+
+## Additional Dependencies
+
+Install recommended dependencies:
+
+```bash
+brew install node curl wget git ripgrep
+```
+
+## Usage
+
+### Adding URLs
+
+```bash
+# Add a single URL
+archivebox add 'https://example.com'
+
+# Add with depth-1 crawling
+archivebox add --depth=1 'https://news.ycombinator.com'
+
+# Add from stdin
+echo 'https://example.com' | archivebox add
+```
+
+### Common Commands
+
+```bash
+# View help
+archivebox help
+
+# Check version and dependencies
+archivebox version
+
+# List all snapshots
+archivebox list
+
+# Check archive status
+archivebox status
+```
+
+## Configuration
+
+Configure ArchiveBox using:
+
+```bash
+# View all configuration
+archivebox config
+
+# Set a value
+archivebox config --set TIMEOUT=120
+
+# Get a specific value
+archivebox config --get CHROME_BINARY
+```
+
+Or edit `ArchiveBox.conf` directly:
+
+```bash
+echo "TIMEOUT=120" >> ArchiveBox.conf
+```
+
+## Updating
+
+### Update Homebrew Package
+
+```bash
+brew update
+brew upgrade archivebox
+```
+
+### Update pip Version
+
+If you upgraded to the pip version:
+
+```bash
+# Upgrade ArchiveBox
+pip install --upgrade archivebox yt-dlp playwright
+
+# Update Playwright Chromium
+playwright install --with-deps chromium
+
+# Run migrations
+cd ~/archivebox/data
+archivebox init
+```
+
+## Troubleshooting
+
+### Command Not Found
+
+If `archivebox` command is not found:
+
+```bash
+# Check if Homebrew bin is in PATH
+echo $PATH | grep homebrew
+
+# Add to PATH if missing (Apple Silicon)
+echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# For Intel Macs
+echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Permission Errors
+
+<Warning>
+Never run ArchiveBox as root. It will refuse to run for security reasons.
+</Warning>
+
+Ensure you're running as a regular user:
+
+```bash
+whoami  # Should be your username, not 'root'
+```
+
+### Missing Dependencies
+
+Check which dependencies are missing:
+
+```bash
+archivebox version
+```
+
+Install any missing packages:
+
+```bash
+brew install node curl wget git ripgrep chromium
+```
+
+### Chromium Issues
+
+If Playwright Chromium isn't working:
+
+```bash
+# Reinstall with system dependencies
+playwright install --with-deps chromium
+
+# Or use Homebrew Chromium
+brew install chromium
+archivebox config --set CHROME_BINARY=/opt/homebrew/bin/chromium
+```
+
+### Python Version Issues
+
+Ensure you're using Python 3.10 or higher:
+
+```bash
+python3 --version
+
+# If too old, install newer Python
+brew install python@3.11
+```
+
+### Rosetta 2 (Apple Silicon)
+
+If you encounter architecture issues on Apple Silicon:
+
+```bash
+# Reinstall under native ARM architecture
+arch -arm64 brew reinstall archivebox
+```
+
+### Homebrew Installation Hanging
+
+If the installation hangs:
+
+```bash
+# Cancel and retry with verbose output
+brew install archivebox --verbose
+
+# Or install dependencies manually first
+brew install python node
+pip3 install archivebox
+```
+
+## macOS-Specific Tips
+
+### Using with iCloud Drive
+
+<Warning>
+Avoid storing your ArchiveBox data directory in iCloud Drive or other cloud sync folders. The frequent file changes can cause sync conflicts and performance issues.
+</Warning>
+
+### Preventing Sleep During Archiving
+
+```bash
+# Prevent Mac from sleeping during long archiving sessions
+caffeinate -s archivebox add --depth=1 'https://example.com'
+```
+
+### Scheduling with launchd
+
+Create a scheduled archiving job using launchd:
+
+```bash
+# Create a launch agent (example)
+mkdir -p ~/Library/LaunchAgents
+cat > ~/Library/LaunchAgents/com.archivebox.scheduled.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.archivebox.scheduled</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/archivebox</string>
+        <string>schedule</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/archivebox/data</string>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+</dict>
+</plist>
+EOF
+
+# Load the launch agent
+launchctl load ~/Library/LaunchAgents/com.archivebox.scheduled.plist
+```
+
+## Homebrew Package Details
+
+For more information about the Homebrew package:
+
+- Repository: [homebrew-archivebox](https://github.com/ArchiveBox/homebrew-archivebox)
+- Tap: `archivebox/archivebox`
+- Update frequency: May lag behind pip releases
+
+<Tip>
+For the absolute latest features and bug fixes, use the pip installation method or Docker instead.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Import URLs" icon="file-import" href="/usage/import">
+    Learn how to import bookmarks and URLs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize ArchiveBox settings
+  </Card>
+  <Card title="Web UI" icon="browser" href="/usage/web-ui">
+    Use the web interface
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Master the command-line interface
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+- [Bare Metal Installation Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup)
+- [homebrew-archivebox Repository](https://github.com/ArchiveBox/homebrew-archivebox)
+- [Troubleshooting Guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing)
+- [Chromium Installation](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)

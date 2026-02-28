@@ -1,0 +1,511 @@
+---
+title: Scheduled Archiving
+description: Automatically archive URLs on a schedule
+---
+
+Scheduled archiving allows you to automatically import and archive URLs from RSS feeds, bookmarks, or other sources on a regular schedule.
+
+## Quick Start
+
+### Add a Scheduled Job
+
+```bash
+# Archive RSS feed daily
+archivebox schedule --add --every=day --depth=1 'https://example.com/feed.xml'
+
+# Archive multiple URLs weekly
+archivebox schedule --add --every=week --depth=0 'https://news.ycombinator.com'
+```
+
+### Start the Scheduler
+
+```bash
+# Run in foreground (shows logs)
+archivebox schedule --foreground
+
+# Or run in background
+archivebox schedule &
+```
+
+### Docker Compose
+
+The `docker-compose.yml` includes a scheduler service:
+
+```yaml
+archivebox_scheduler:
+    image: archivebox/archivebox:latest
+    command: schedule --foreground --update --every=day
+    volumes:
+        - ./data:/data
+```
+
+1. **Add scheduled job**:
+   ```bash
+   docker compose run archivebox schedule --add --every=day 'https://example.com/feed.xml'
+   ```
+
+2. **Start scheduler**:
+   ```bash
+   docker compose up -d archivebox_scheduler
+   ```
+
+3. **View logs**:
+   ```bash
+   docker compose logs -f archivebox_scheduler
+   ```
+
+## Schedule Frequencies
+
+### Supported Intervals
+
+```bash
+# Hourly
+archivebox schedule --add --every=hour 'https://example.com/feed.xml'
+
+# Every 4 hours
+archivebox schedule --add --every=4h 'https://example.com/feed.xml'
+
+# Daily (default: midnight)
+archivebox schedule --add --every=day 'https://example.com/feed.xml'
+
+# Weekly (default: Sunday midnight)
+archivebox schedule --add --every=week 'https://example.com/feed.xml'
+
+# Monthly (default: 1st of month)
+archivebox schedule --add --every=month 'https://example.com/feed.xml'
+```
+
+### Custom Times
+
+```bash
+# Daily at specific time (24-hour format)
+archivebox schedule --add --every=day --at=14:30 'https://example.com/feed.xml'
+
+# Weekly on specific day
+archivebox schedule --add --every=week --on=monday --at=09:00 'https://example.com/feed.xml'
+```
+
+## Managing Scheduled Jobs
+
+### List Scheduled Jobs
+
+```bash
+# View all scheduled jobs
+archivebox schedule --list
+```
+
+Output shows:
+- Job ID
+- Schedule frequency
+- Source URL or command
+- Next run time
+- Status
+
+### Remove Scheduled Job
+
+```bash
+# Remove by job ID
+archivebox schedule --remove=<job_id>
+
+# Remove all jobs
+archivebox schedule --clear
+```
+
+### Modify Scheduled Job
+
+To change a job, remove and re-add it:
+
+```bash
+# Remove old job
+archivebox schedule --remove=<job_id>
+
+# Add new job with updated settings
+archivebox schedule --add --every=day --depth=2 'https://example.com/feed.xml'
+```
+
+Then restart the scheduler:
+
+```bash
+# Docker Compose
+docker compose restart archivebox_scheduler
+
+# Or if running in background
+pkill -f "archivebox schedule"
+archivebox schedule &
+```
+
+## Scheduler Modes
+
+### Foreground Mode
+
+Runs in foreground, showing logs:
+
+```bash
+archivebox schedule --foreground
+```
+
+Useful for:
+- Debugging
+- Seeing what's being archived
+- Running in Docker/systemd
+
+### Background Mode
+
+Runs as background process:
+
+```bash
+archivebox schedule &
+
+# Or with nohup
+nohup archivebox schedule > schedule.log 2>&1 &
+```
+
+### One-Time Mode
+
+Run all scheduled jobs once, then exit:
+
+```bash
+archivebox schedule --run-once
+```
+
+Useful for:
+- Testing schedules
+- Manual runs
+- Cron integration
+
+## Use Cases
+
+### RSS Feed Monitoring
+
+Automatically archive new articles:
+
+```bash
+# News feeds (daily)
+archivebox schedule --add --every=day --depth=1 'https://news.site/rss'
+
+# Blog feeds (weekly)
+archivebox schedule --add --every=week 'https://blog.com/feed.xml'
+
+# High-frequency feeds (hourly)
+archivebox schedule --add --every=hour 'https://breaking-news.com/rss'
+```
+
+### Bookmark Synchronization
+
+Sync bookmarks from file:
+
+```bash
+# Daily bookmark import
+archivebox schedule --add --every=day --import-file=/path/to/bookmarks.html
+```
+
+### Website Snapshots
+
+Regular snapshots of changing content:
+
+```bash
+# Daily homepage snapshots
+archivebox schedule --add --every=day 'https://company.com'
+
+# Weekly full site crawl
+archivebox schedule --add --every=week --depth=2 'https://documentation.com'
+```
+
+### Social Media Monitoring
+
+Archive social media profiles (requires [persona](/features/personas)):
+
+```bash
+# Daily Twitter archive
+archivebox schedule --add --every=day --persona=social 'https://twitter.com/username'
+```
+
+## Configuration
+
+### Scheduler Settings
+
+```bash
+# Set default schedule frequency
+archivebox config --set SCHEDULE_FREQUENCY=day
+
+# Retry failed archives
+archivebox config --set SCHEDULE_RETRY_FAILED=True
+
+# Maximum retries
+archivebox config --set SCHEDULE_MAX_RETRIES=3
+```
+
+### Timeout Settings
+
+Use higher timeouts for scheduled jobs:
+
+```bash
+# In docker-compose.yml
+archivebox_scheduler:
+    environment:
+        - TIMEOUT=120
+```
+
+Or:
+
+```bash
+archivebox config --set TIMEOUT=120
+```
+
+## Cron Integration
+
+Instead of the built-in scheduler, use system cron:
+
+### Basic Cron Setup
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add jobs
+# Daily at 2 AM
+0 2 * * * cd ~/archivebox/data && /usr/local/bin/archivebox add 'https://example.com/feed.xml' >> ~/archivebox/schedule.log 2>&1
+
+# Every 6 hours
+0 */6 * * * cd ~/archivebox/data && /usr/local/bin/archivebox add 'https://news.com/rss' >> ~/archivebox/schedule.log 2>&1
+```
+
+### Advanced Cron Example
+
+```bash
+#!/bin/bash
+# ~/archivebox/schedule.sh
+
+cd ~/archivebox/data
+
+# Archive RSS feeds
+archivebox add 'https://example.com/feed.xml'
+archivebox add 'https://news.com/rss'
+
+# Archive bookmarks
+archivebox add < ~/bookmarks.txt
+
+# Update search index
+archivebox update --index-only
+```
+
+Make executable and add to cron:
+
+```bash
+chmod +x ~/archivebox/schedule.sh
+
+# Run daily at 3 AM
+0 3 * * * ~/archivebox/schedule.sh >> ~/archivebox/schedule.log 2>&1
+```
+
+### Docker Cron
+
+For Docker, use host cron:
+
+```bash
+# crontab -e
+0 2 * * * docker compose -f /path/to/docker-compose.yml run -T archivebox add 'https://example.com/feed.xml' >> /path/to/schedule.log 2>&1
+```
+
+## Systemd Service
+
+Run scheduler as systemd service:
+
+### Create Service File
+
+`/etc/systemd/system/archivebox-scheduler.service`:
+
+```ini
+[Unit]
+Description=ArchiveBox Scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=archivebox
+WorkingDirectory=/home/archivebox/data
+ExecStart=/usr/local/bin/archivebox schedule --foreground
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Enable and Start
+
+```bash
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Enable on boot
+sudo systemctl enable archivebox-scheduler
+
+# Start service
+sudo systemctl start archivebox-scheduler
+
+# Check status
+sudo systemctl status archivebox-scheduler
+
+# View logs
+journalctl -u archivebox-scheduler -f
+```
+
+## Retry Failed Archives
+
+The scheduler can automatically retry failed archives:
+
+```bash
+# Enable retry on failure
+archivebox config --set SCHEDULE_RETRY_FAILED=True
+
+# Set max retries
+archivebox config --set SCHEDULE_MAX_RETRIES=3
+
+# Set retry delay
+archivebox config --set SCHEDULE_RETRY_DELAY=3600  # 1 hour
+```
+
+Or run retry manually:
+
+```bash
+# Retry all failed snapshots
+archivebox update --retry
+
+# Retry failed from last 24 hours
+archivebox update --retry --filter-after=yesterday
+```
+
+## Monitoring
+
+### Check Scheduler Status
+
+```bash
+# View scheduled jobs
+archivebox schedule --list
+
+# Check last run times
+archivebox status
+
+# View logs
+tail -f ~/archivebox/data/logs/scheduler.log
+```
+
+### Docker Logs
+
+```bash
+# Follow scheduler logs
+docker compose logs -f archivebox_scheduler
+
+# View recent logs
+docker compose logs --tail=100 archivebox_scheduler
+```
+
+### Email Notifications
+
+Set up email notifications on failure:
+
+```bash
+# Using cron with mail
+# Cron will email output if job fails
+0 2 * * * cd ~/archivebox/data && archivebox schedule --run-once
+```
+
+Or use a monitoring service like:
+- [Healthchecks.io](https://healthchecks.io)
+- [Cronitor](https://cronitor.io)
+- [UptimeRobot](https://uptimerobot.com)
+
+## Troubleshooting
+
+### Scheduler Not Running
+
+```bash
+# Check if scheduler is running
+ps aux | grep "archivebox schedule"
+
+# Check Docker service status
+docker compose ps archivebox_scheduler
+
+# View logs for errors
+docker compose logs archivebox_scheduler
+```
+
+### Jobs Not Executing
+
+```bash
+# Verify jobs are added
+archivebox schedule --list
+
+# Check system time
+date
+
+# Manually trigger job
+archivebox schedule --run-once
+```
+
+### Jobs Failing
+
+```bash
+# Check timeout settings
+archivebox config | grep TIMEOUT
+
+# Increase timeout
+archivebox config --set TIMEOUT=120
+
+# Check disk space
+df -h
+
+# Check logs
+archivebox status
+```
+
+### Schedule Changes Not Applied
+
+```bash
+# Restart scheduler after changes
+docker compose restart archivebox_scheduler
+
+# Or kill and restart
+pkill -f "archivebox schedule"
+archivebox schedule --foreground
+```
+
+## Best Practices
+
+1. **Use appropriate frequencies**:
+   - High-traffic sites: hourly
+   - News/blogs: daily
+   - Personal bookmarks: weekly
+
+2. **Set reasonable timeouts**:
+   ```bash
+   # Higher timeout for scheduled jobs
+   TIMEOUT=120
+   ```
+
+3. **Monitor disk space**:
+   ```bash
+   df -h ~/archivebox/data
+   ```
+
+4. **Regular maintenance**:
+   ```bash
+   # Remove old failed snapshots
+   archivebox remove --filter-status=failed --filter-before=30d
+   ```
+
+5. **Test before scheduling**:
+   ```bash
+   # Test URL first
+   archivebox add --depth=1 'https://example.com/feed.xml'
+   
+   # Then schedule
+   archivebox schedule --add --every=day --depth=1 'https://example.com/feed.xml'
+   ```
+
+## See Also
+
+- [Input Formats](/features/input-formats) - Ways to import URLs
+- [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) - All settings
+- [Scheduled Archiving Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) - Detailed guide

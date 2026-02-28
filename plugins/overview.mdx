@@ -1,0 +1,192 @@
+---
+title: 'Plugins Overview'
+description: 'Understanding ArchiveBox plugin architecture and available plugins'
+---
+
+## What are Plugins?
+
+ArchiveBox uses a modular plugin system to handle different aspects of web archiving. Each plugin is a self-contained module that performs a specific task, from extracting content to parsing URLs.
+
+## Plugin Architecture
+
+Plugins in ArchiveBox follow a hook-based architecture:
+
+- **Hook Files**: Plugins define hooks that run at specific lifecycle events (e.g., `on_Snapshot__51_screenshot.js`, `on_Crawl__10_wget_install.py`)
+- **Configuration**: Each plugin has a `config.json` file with JSON Schema validation
+- **Templates**: Plugins can provide UI templates for displaying results (icon, card, full views)
+- **Tests**: Each plugin includes isolated tests that replicate production directory structure
+
+### Plugin Lifecycle
+
+Plugins execute at different stages:
+
+1. **Binary Installation** (`on_Binary__*`) - Install required dependencies
+2. **Crawl Setup** (`on_Crawl__*`) - Initialize crawl-level resources (e.g., Chrome session)
+3. **Snapshot Processing** (`on_Snapshot__*`) - Extract content from individual snapshots
+4. **Post-Processing** - Index content, parse URLs, etc.
+
+The numeric prefix in hook filenames determines execution order (e.g., `51` runs after `50`).
+
+## Plugin Types
+
+ArchiveBox plugins fall into several categories:
+
+### Extractor Plugins
+Extract and archive web content:
+- **chrome** - Core Chrome/Chromium integration via CDP
+- **screenshot** - Capture page screenshots
+- **singlefile** - Save complete HTML with SingleFile
+- **dom** - Extract DOM snapshots
+- **pdf** - Generate PDF snapshots
+- **wget** - Download sites with wget
+- **ytdlp** - Download videos/audio with yt-dlp
+- **readability** - Extract readable text content
+- **mercury** - Article content extraction
+
+### Parser Plugins
+Parse URLs from various input formats:
+- **parse_html_urls** - Extract URLs from HTML files
+- **parse_rss_urls** - Parse RSS/Atom feeds
+- **parse_txt_urls** - Parse plain text URL lists
+- **parse_jsonl_urls** - Parse JSONL format
+- **parse_netscape_urls** - Parse Netscape bookmark format
+- **parse_dom_outlinks** - Extract outlinks from DOM (for recursive crawling)
+
+### Metadata Extractors
+Extract metadata using Chrome/CDP:
+- **title** - Extract page title
+- **favicon** - Download favicon
+- **headers** - Capture HTTP headers
+- **dns** - DNS resolution info
+- **ssl** - SSL certificate info
+- **redirects** - Track redirect chains
+- **responses** - Capture network responses
+- **consolelog** - Capture console output
+- **accessibility** - Extract accessibility tree
+- **seo** - Extract SEO metadata
+- **hashes** - Calculate content hashes
+
+### Browser Extensions
+Chrome extensions managed via CDP:
+- **ublock** - uBlock Origin ad blocker
+- **istilldontcareaboutcookies** - Cookie banner dismissal
+- **twocaptcha** - CAPTCHA solver integration
+
+### Page Manipulation
+Prepare pages before archiving:
+- **modalcloser** - Dismiss modal dialogs
+- **infiniscroll** - Handle infinite scroll
+
+### Search Backends
+Full-text search implementations:
+- **search_backend_sqlite** - SQLite FTS5 search
+- **search_backend_sonic** - Sonic search server
+- **search_backend_ripgrep** - Fast grep-based search
+
+### System Plugins
+Infrastructure and package management:
+- **npm** - Node.js package management
+- **pip** - Python package management
+- **apt** - Debian/Ubuntu package management
+- **brew** - macOS Homebrew
+- **env** - Environment configuration
+- **custom** - User-defined plugins
+
+### Specialized Downloaders
+- **archivedotorg** - Archive.org integration
+- **git** - Git repository archiving
+- **gallerydl** - Gallery downloader
+- **forumdl** - Forum downloader
+- **papersdl** - Academic paper downloader
+- **staticfile** - Direct file downloads (images, PDFs, etc.)
+
+## Plugin Dependencies
+
+Some plugins require other plugins to function:
+
+```json
+// Example: screenshot requires chrome
+{
+  "required_plugins": ["chrome"]
+}
+```
+
+Common dependencies:
+- Most browser-based extractors require **chrome**
+- Browser extensions require **chrome**
+- Page manipulation plugins require **chrome**
+
+## Plugin Configuration
+
+Each plugin is configured via environment variables or `config.json`:
+
+```json
+{
+  "SCREENSHOT_ENABLED": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable screenshot capture"
+  },
+  "SCREENSHOT_TIMEOUT": {
+    "type": "integer",
+    "default": 60,
+    "minimum": 5,
+    "description": "Timeout for screenshot capture in seconds"
+  }
+}
+```
+
+Configuration options support:
+- **Type validation** via JSON Schema
+- **Aliases** (`x-aliases`) for backward compatibility
+- **Fallbacks** (`x-fallback`) to shared config values
+- **Default values**
+
+## Plugin Directory Structure
+
+Each plugin follows a standard structure:
+
+```
+plugins/screenshot/
+├── config.json              # Configuration schema
+├── on_Snapshot__51_screenshot.js  # Hook implementation
+├── templates/
+│   ├── icon.html           # Icon view
+│   ├── card.html           # Card view
+│   └── full.html           # Full view (optional)
+└── tests/
+    └── test_screenshot.py  # Plugin tests
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Extractor Plugins"
+    icon="download"
+    href="/plugins/extractors"
+  >
+    Learn about content extraction plugins
+  </Card>
+  <Card
+    title="Parser Plugins"
+    icon="code"
+    href="/plugins/parsers"
+  >
+    Discover URL parsing plugins
+  </Card>
+  <Card
+    title="Chrome Plugins"
+    icon="browser"
+    href="/plugins/chrome-plugins"
+  >
+    Explore Chrome-based plugins
+  </Card>
+  <Card
+    title="Custom Plugins"
+    icon="wrench"
+    href="/plugins/custom-plugins"
+  >
+    Create your own plugins
+  </Card>
+</CardGroup>

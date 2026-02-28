@@ -1,0 +1,166 @@
+---
+title: Configuration Overview
+description: How to configure ArchiveBox
+---
+
+# Configuration Overview
+
+ArchiveBox can be configured via environment variables, the `archivebox config` CLI command, or by editing the `ArchiveBox.conf` file. All three methods are equivalent and can be used together.
+
+## Configuration Methods
+
+ArchiveBox supports three ways to configure settings, listed in order of precedence:
+
+### 1. Environment Variables
+
+Set environment variables when running ArchiveBox commands:
+
+```bash
+env CHROME_BINARY=chromium archivebox add 'https://example.com'
+```
+
+This is useful for one-off configuration changes or when using Docker.
+
+### 2. CLI Configuration
+
+Use the `archivebox config` command to view and modify settings:
+
+```bash
+# View all configuration
+archivebox config
+
+# View a specific setting
+archivebox config --get CHROME_BINARY
+
+# Set a configuration value (persists to ArchiveBox.conf)
+archivebox config --set CHROME_BINARY=chromium
+```
+
+Settings changed via CLI are automatically saved to `ArchiveBox.conf`.
+
+### 3. ArchiveBox.conf File
+
+Edit the `ArchiveBox.conf` file directly in your data directory:
+
+```bash
+cd ~/archivebox/data
+nano ArchiveBox.conf
+```
+
+Add or modify settings in the file:
+
+```ini
+[GENERAL_CONFIG]
+TIMEOUT = 120
+CHROME_BINARY = chromium
+
+[SERVER_CONFIG]
+PUBLIC_INDEX = True
+PUBLIC_SNAPSHOTS = True
+```
+
+Restart ArchiveBox for changes to take effect.
+
+## Configuration in Docker
+
+When using Docker, you can configure ArchiveBox in several ways:
+
+### Docker Compose Environment Variables
+
+Edit `docker-compose.yml`:
+
+```yaml
+services:
+    archivebox:
+        environment:
+            - ADMIN_USERNAME=admin
+            - ADMIN_PASSWORD=YourPassword
+            - ALLOWED_HOSTS=*
+            - PUBLIC_INDEX=True
+            - PUBLIC_SNAPSHOTS=True
+```
+
+### Docker CLI Commands
+
+You can still use the `archivebox config` command:
+
+```bash
+docker compose run archivebox config --set CHROME_BINARY=chromium
+```
+
+### Mounted ArchiveBox.conf
+
+Edit the `ArchiveBox.conf` file in your mounted `./data` directory.
+
+## Configuration Precedence
+
+When multiple configuration methods are used, the order of precedence is:
+
+1. **Environment variables** (highest priority)
+2. **ArchiveBox.conf** file settings
+3. **Default values** (lowest priority)
+
+## Common Configuration Tasks
+
+### Increase Timeout for Slow Sites
+
+```bash
+archivebox config --set TIMEOUT=120
+```
+
+### Configure Chrome/Chromium
+
+```bash
+archivebox config --set CHROME_BINARY=chromium
+archivebox config --set CHROME_HEADLESS=True
+```
+
+### Enable/Disable Archive Methods
+
+```bash
+# Disable PDF generation
+archivebox config --set SAVE_PDF=False
+
+# Enable yt-dlp for media
+archivebox config --set SAVE_YTDLP=True
+```
+
+### Configure Public Access
+
+```bash
+archivebox config --set PUBLIC_INDEX=True
+archivebox config --set PUBLIC_SNAPSHOTS=True
+archivebox config --set PUBLIC_ADD_VIEW=False
+```
+
+## Configuration Categories
+
+ArchiveBox configuration is organized into several categories:
+
+- **General Config**: Core settings like timeouts, permissions, URL filters
+- **Server Config**: Web UI settings, authentication, public access
+- **Archive Method Toggles**: Enable/disable specific extractors
+- **Dependency Config**: Binary paths and options for tools
+- **Search Backend**: Full-text search configuration
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="terminal" href="/config/environment-variables">
+    Complete reference of environment variables
+  </Card>
+  <Card title="ArchiveBox.conf" icon="file" href="/config/archivebox-conf">
+    ArchiveBox.conf file format and settings
+  </Card>
+  <Card title="Dependencies" icon="puzzle-piece" href="/config/dependencies">
+    Configure extractors and dependencies
+  </Card>
+  <Card title="Storage" icon="hard-drive" href="/config/storage">
+    Storage configuration and cloud backends
+  </Card>
+</CardGroup>
+
+## Learn More
+
+- [Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) - Complete configuration documentation
+- [Docker Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration) - Docker-specific configuration

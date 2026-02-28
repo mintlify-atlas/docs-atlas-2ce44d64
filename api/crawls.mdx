@@ -1,0 +1,351 @@
+---
+title: Crawls API
+description: Manage crawl sessions via REST API
+---
+
+## Overview
+
+The Crawls API allows you to manage crawl sessions. A crawl represents a group of snapshots created from a single import or archiving command (e.g., `archivebox add`).
+
+**Base URL**: `/api/v1/crawls/`
+
+## Crawl Schema
+
+A crawl object contains:
+
+```json
+{
+  "TYPE": "crawls.models.Crawl",
+  "id": "01234567-89ab-cdef-0123-456789abcdef",
+  "created_at": "2024-01-15T10:30:00Z",
+  "modified_at": "2024-01-15T10:35:00Z",
+  "created_by_id": "1",
+  "created_by_username": "admin",
+  "status": "succeeded",
+  "retry_at": null,
+  "urls": "https://example.com\nhttps://example.org",
+  "extractor": "auto",
+  "max_depth": 0,
+  "tags_str": "important,tutorial",
+  "config": {
+    "TIMEOUT": "60",
+    "CHECK_SSL_VALIDITY": "True"
+  }
+}
+```
+
+### Field Descriptions
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | UUID | Unique identifier for the crawl |
+| `created_at` | datetime | When the crawl was created |
+| `modified_at` | datetime | When the crawl was last modified |
+| `created_by_id` | string | User ID who created the crawl |
+| `created_by_username` | string | Username who created the crawl |
+| `status` | string | Current status (see Status Values) |
+| `retry_at` | datetime? | When to retry crawl (null if not scheduled) |
+| `urls` | string | Newline-separated list of URLs |
+| `extractor` | string | Parser used (e.g., "auto", "wget_log", "rss") |
+| `max_depth` | int | Recursion depth for crawling |
+| `tags_str` | string | Comma-separated tag names |
+| `config` | object | Configuration overrides for this crawl |
+
+### Status Values
+
+- `queued` - Waiting to be processed
+- `started` - Currently crawling
+- `succeeded` - Successfully completed
+- `failed` - Crawl failed
+- `sealed` - Cancelled/frozen (no further processing)
+
+## List Crawls
+
+Get all crawls in the system.
+
+<CodeGroup>
+```bash cURL
+curl http://127.0.0.1:8000/api/v1/crawls/crawls \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "http://127.0.0.1:8000/api/v1/crawls/crawls",
+    headers={"X-ArchiveBox-API-Key": "your-token-here"}
+)
+crawls = response.json()
+```
+
+```javascript JavaScript
+fetch('http://127.0.0.1:8000/api/v1/crawls/crawls', {
+  headers: {
+    'X-ArchiveBox-API-Key': 'your-token-here'
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data));
+```
+</CodeGroup>
+
+### Response
+
+Returns an array of crawl objects:
+
+```json
+[
+  {
+    "TYPE": "crawls.models.Crawl",
+    "id": "01234567-89ab-cdef-0123-456789abcdef",
+    "created_at": "2024-01-15T10:30:00Z",
+    ...
+  }
+]
+```
+
+## Get Single Crawl
+
+Retrieve a specific crawl by ID.
+
+<CodeGroup>
+```bash cURL
+curl http://127.0.0.1:8000/api/v1/crawls/crawl/01234567 \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "http://127.0.0.1:8000/api/v1/crawls/crawl/01234567",
+    headers={"X-ArchiveBox-API-Key": "your-token-here"},
+    params={"with_snapshots": True}
+)
+crawl = response.json()
+```
+</CodeGroup>
+
+### Path Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `crawl_id` | Crawl UUID (full or prefix match) |
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `with_snapshots` | bool | `false` | Include snapshots array |
+| `with_archiveresults` | bool | `false` | Include archiveresults in snapshots |
+| `as_rss` | bool | `false` | Return snapshots as RSS XML feed |
+
+### Response
+
+Returns a single crawl object.
+
+### RSS Feed Export
+
+Get snapshots from a crawl as an RSS feed:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/crawls/crawl/01234567?as_rss=true" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+Response:
+```xml
+<rss version="2.0">
+  <channel>
+    <item>
+      <url>https://example.com</url>
+      <title>Example Domain</title>
+      <bookmarked_at>2024-01-15T10:30:00Z</bookmarked_at>
+      <tags>important,tutorial</tags>
+    </item>
+  </channel>
+</rss>
+```
+
+## Update Crawl
+
+Update crawl status or retry time.
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH http://127.0.0.1:8000/api/v1/crawls/crawl/01234567 \
+  -H "X-ArchiveBox-API-Key: your-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "sealed"
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.patch(
+    "http://127.0.0.1:8000/api/v1/crawls/crawl/01234567",
+    headers={
+        "X-ArchiveBox-API-Key": "your-token-here",
+        "Content-Type": "application/json"
+    },
+    json={"status": "sealed"}
+)
+crawl = response.json()
+```
+</CodeGroup>
+
+### Request Body
+
+```json
+{
+  "status": "sealed",          // Optional: new status value
+  "retry_at": "2024-01-20T10:00:00Z"  // Optional: schedule retry
+}
+```
+
+### Behavior
+
+When setting `status` to `sealed`:
+- The crawl's `retry_at` is set to `null`
+- All queued or started snapshots in this crawl are also sealed
+- Their `retry_at` fields are also set to `null`
+
+This effectively cancels all pending work for the entire crawl.
+
+### Valid Status Transitions
+
+You can update status to any of these values:
+- `queued`
+- `started`
+- `succeeded`
+- `failed`
+- `sealed`
+
+### Response
+
+Returns the updated crawl object.
+
+## Common Workflows
+
+### Cancel a Running Crawl
+
+Stop a crawl and all its associated snapshots:
+
+```python
+import requests
+
+api_key = "your-token-here"
+base_url = "http://127.0.0.1:8000/api/v1"
+
+response = requests.patch(
+    f"{base_url}/crawls/crawl/01234567",
+    headers={
+        "X-ArchiveBox-API-Key": api_key,
+        "Content-Type": "application/json"
+    },
+    json={"status": "sealed"}
+)
+
+print(f"Crawl sealed: {response.json()['id']}")
+```
+
+### View All Snapshots in a Crawl
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/crawls/crawl/01234567?with_snapshots=true" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+Or query snapshots directly by crawl:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/core/snapshots?crawl_id=01234567" \
+  -H "X-ArchiveBox-API-Key: your-token-here"
+```
+
+### Monitor Recent Crawls
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/crawls/crawls" \
+  -H "X-ArchiveBox-API-Key: your-token-here" \
+  | jq 'sort_by(.created_at) | reverse | .[0:10]'
+```
+
+### Export Crawl as RSS Feed
+
+Useful for sharing or re-importing:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/crawls/crawl/01234567?as_rss=true" \
+  -H "X-ArchiveBox-API-Key: your-token-here" \
+  > crawl-export.xml
+```
+
+## Understanding Crawls vs Snapshots
+
+<Info>
+**Relationship:**
+
+- **Crawl**: Represents a single import operation (e.g., one `archivebox add` command)
+- **Snapshot**: Individual URL within a crawl
+
+One crawl can contain multiple snapshots. For example:
+
+```bash
+archivebox add --depth=1 https://example.com
+```
+
+This creates:
+- **1 Crawl** with `max_depth=1`
+- **Multiple Snapshots** (example.com + any linked pages)
+</Info>
+
+### Crawl Configuration
+
+The `config` field stores configuration overrides that were active when the crawl was created:
+
+```json
+{
+  "config": {
+    "TIMEOUT": "60",
+    "CHECK_SSL_VALIDITY": "True",
+    "SAVE_SCREENSHOT": "True"
+  }
+}
+```
+
+These settings were applied to all snapshots in the crawl.
+
+## Error Responses
+
+### 404 Not Found
+
+```json
+{
+  "succeeded": false,
+  "message": "ObjectDoesNotExist: Crawl matching query does not exist."
+}
+```
+
+### 400 Bad Request
+
+```json
+{
+  "succeeded": false,
+  "message": "Invalid status: invalid-status"
+}
+```
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Snapshots API" icon="camera" href="/api/snapshots">
+    View snapshots within a crawl
+  </Card>
+  <Card title="Tags API" icon="tag" href="/api/tags">
+    Crawls can have tags applied to all snapshots
+  </Card>
+</CardGroup>

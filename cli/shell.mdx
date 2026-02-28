@@ -1,0 +1,426 @@
+---
+title: archivebox shell
+description: Enter an interactive Python/Django shell with ArchiveBox models loaded
+---
+
+The `shell` command opens an enhanced interactive Python shell with ArchiveBox models, configuration, and utilities pre-loaded. Perfect for advanced scripting, debugging, and data exploration.
+
+## Basic Usage
+
+```bash
+archivebox shell
+```
+
+```bash docker
+docker compose run archivebox shell
+```
+
+## What You Get
+
+### Pre-loaded Models
+
+```python
+# Available immediately without imports
+Snapshot.objects.all()
+Crawl.objects.filter(status='succeeded')
+ArchiveResult.objects.count()
+Tag.objects.all()
+```
+
+### Enhanced Features
+
+Uses `django-extensions` shell_plus:
+
+- **Auto-imports** - All models loaded automatically
+- **Syntax highlighting** - Colored output for readability
+- **Auto-completion** - Tab completion for models and methods
+- **SQL printing** - See executed SQL queries
+- **Rich output** - Pretty-printed objects
+
+## Examples
+
+### Basic Queries
+
+```python
+# Count total snapshots
+Snapshot.objects.count()
+
+# Get recent snapshots
+Snapshot.objects.order_by('-created_at')[:10]
+
+# Filter by domain
+Snapshot.objects.filter(url__contains='example.com')
+
+# Find failed snapshots
+Snapshot.objects.filter(status='failed')
+```
+
+### Data Exploration
+
+```python
+# Average archive size
+from django.db.models import Avg
+Snapshot.objects.aggregate(Avg('archive_size'))
+
+# Snapshots per domain
+from django.db.models import Count
+Snapshot.objects.values('url__host').annotate(count=Count('id')).order_by('-count')[:10]
+
+# Tags usage
+Tag.objects.annotate(num_snapshots=Count('snapshot')).order_by('-num_snapshots')
+
+# Largest archives
+Snapshot.objects.order_by('-archive_size')[:10]
+```
+
+### Bulk Operations
+
+```python
+# Tag all snapshots from a domain
+from archivebox.core.models import Snapshot, Tag
+tag, _ = Tag.objects.get_or_create(name='example-sites')
+for snapshot in Snapshot.objects.filter(url__contains='example.com'):
+    snapshot.tags.add(tag)
+
+# Delete failed snapshots
+Snapshot.objects.filter(status='failed').delete()
+
+# Re-queue old snapshots
+from django.utils import timezone
+from datetime import timedelta
+old_date = timezone.now() - timedelta(days=365)
+Snapshot.objects.filter(created_at__lt=old_date).update(status='queued', retry_at=timezone.now())
+```
+
+### Export Data
+
+```python
+# Export URLs to file
+import json
+snapshots = Snapshot.objects.values('url', 'title', 'created_at')
+with open('export.json', 'w') as f:
+    json.dump(list(snapshots), f, indent=2, default=str)
+
+# Export as CSV
+import csv
+with open('export.csv', 'w') as f:
+    writer = csv.writer(f)
+    writer.writerow(['URL', 'Title', 'Created', 'Size'])
+    for s in Snapshot.objects.all():
+        writer.writerow([s.url, s.title, s.created_at, s.archive_size])
+```
+
+### Custom Queries
+
+```python
+# Find duplicate URLs
+from django.db.models import Count
+duplicates = Snapshot.objects.values('url').annotate(
+    count=Count('id')
+).filter(count__gt=1)
+
+for dup in duplicates:
+    print(f"Duplicate: {dup['url']} ({dup['count']} copies)")
+    Snapshot.objects.filter(url=dup['url']).order_by('created_at')[1:].delete()
+
+# Find snapshots without archive results
+empty_snapshots = Snapshot.objects.filter(archiveresult__isnull=True)
+print(f"Found {empty_snapshots.count()} empty snapshots")
+
+# Get archive statistics by month
+from django.db.models.functions import TruncMonth
+Snapshot.objects.annotate(month=TruncMonth('created_at')).values('month').annotate(count=Count('id')).order_by('month')
+```
+
+### Configuration Access
+
+```python
+# View configuration
+from archivebox.config.common import ARCHIVING_CONFIG
+print(ARCHIVING_CONFIG.TIMEOUT)
+print(ARCHIVING_CONFIG.SAVE_SCREENSHOT)
+
+# Get all config
+from archivebox.config.configset import get_flat_config
+config = get_flat_config()
+for key, value in config.items():
+    print(f"{key} = {value}")
+```
+
+### Plugin Access
+
+```python
+# List available plugins
+from archivebox.hooks import discover_plugins
+plugins = discover_plugins()
+for name, plugin in plugins.items():
+    print(f"{name}: {plugin}")
+
+# Check binary versions
+from archivebox.binaries import get_binary_version
+get_binary_version('chrome')
+get_binary_version('wget')
+get_binary_version('youtube-dl')
+```
+
+### Debugging
+
+```python
+# Inspect a snapshot
+snapshot = Snapshot.objects.first()
+print(snapshot.__dict__)
+print(snapshot.output_dir)
+print(snapshot.archive_size)
+print(snapshot.num_outputs)
+
+# Check extractor outputs
+for result in snapshot.archiveresult_set.all():
+    print(f"{result.extractor}: {result.status} ({result.output_path})")
+
+# Test URL parsing
+from archivebox.misc.url_utils import validate_url, clean_url
+url = 'https://example.com/page?utm_source=test'
+print(validate_url(url))
+print(clean_url(url))
+```
+
+### Database Maintenance
+
+```python
+# Vacuum database
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute('VACUUM')
+
+# Check database size
+import os
+from archivebox.config import CONSTANTS
+db_size = os.path.getsize(CONSTANTS.DATABASE_FILE)
+print(f"Database size: {db_size / 1024 / 1024:.2f} MB")
+
+# Rebuild search index
+from archivebox.search import flush_search_index, index_snapshots
+flush_search_index()
+index_snapshots(Snapshot.objects.all())
+```
+
+## Advanced Usage
+
+### Run Python Scripts
+
+Execute Python code from file:
+
+```bash
+archivebox shell < script.py
+```
+
+```python script.py
+from archivebox.core.models import Snapshot
+
+for snapshot in Snapshot.objects.filter(status='failed'):
+    print(f"Failed: {snapshot.url}")
+    snapshot.status = 'queued'
+    snapshot.save()
+
+print("Re-queued all failed snapshots")
+```
+
+### Non-interactive Mode
+
+Run single command:
+
+```bash
+echo "print(Snapshot.objects.count())" | archivebox shell
+```
+
+### Shell Scripts
+
+```bash
+#!/bin/bash
+archivebox shell <<EOF
+from archivebox.core.models import Snapshot
+import csv
+
+with open('failed.csv', 'w') as f:
+    writer = csv.writer(f)
+    writer.writerow(['URL', 'Status', 'Error'])
+    for s in Snapshot.objects.filter(status='failed'):
+        writer.writerow([s.url, s.status, ''])
+
+print('Exported failed snapshots to failed.csv')
+EOF
+```
+
+## IPython Features
+
+The shell uses IPython with extended features:
+
+### Magic Commands
+
+```python
+# See SQL queries
+%debug  # Debug last exception
+%time Snapshot.objects.count()  # Time execution
+%pdb on  # Auto-enter debugger on exception
+
+# Shell commands
+!ls -la  # Run shell command
+!pwd
+
+# History
+%history  # Show command history
+%save snapshot_queries.py 1-10  # Save lines 1-10 to file
+```
+
+### Tab Completion
+
+Press Tab to complete:
+
+```python
+Snap<Tab>  # Completes to Snapshot
+Snapshot.objects.fil<Tab>  # Shows filter options
+```
+
+### Help System
+
+```python
+# Get help on any object
+help(Snapshot)
+help(Snapshot.objects.filter)
+
+# Quick help
+Snapshot?  # Show docstring
+Snapshot.objects.filter??  # Show source code
+```
+
+## Shell Configuration
+
+Customize shell behavior:
+
+```python ~/.ipython/profile_default/ipython_config.py
+# Enable auto-reload
+c.InteractiveShellApp.extensions = ['autoreload']
+c.InteractiveShellApp.exec_lines = ['%autoreload 2']
+
+# SQL printing
+c.InteractiveShellApp.exec_lines.append(
+    'from django.db import connection; connection.force_debug_cursor = True'
+)
+```
+
+## Common Patterns
+
+### Data Migration
+
+```python
+# Migrate tags from old format
+for snapshot in Snapshot.objects.filter(tags_str__isnull=False):
+    for tag_name in snapshot.tags_str.split(','):
+        tag, _ = Tag.objects.get_or_create(name=tag_name.strip())
+        snapshot.tags.add(tag)
+```
+
+### Batch Re-archiving
+
+```python
+# Re-archive all snapshots with missing screenshots
+missing_screenshots = Snapshot.objects.exclude(
+    archiveresult__extractor='screenshot',
+    archiveresult__status='succeeded'
+)
+
+for snapshot in missing_screenshots:
+    snapshot.status = 'queued'
+    snapshot.retry_at = timezone.now()
+    snapshot.save()
+```
+
+### Generate Reports
+
+```python
+# Monthly report
+from collections import defaultdict
+from datetime import datetime
+
+stats = defaultdict(lambda: {'total': 0, 'succeeded': 0, 'failed': 0})
+
+for snapshot in Snapshot.objects.all():
+    month = snapshot.created_at.strftime('%Y-%m')
+    stats[month]['total'] += 1
+    if snapshot.status == 'archived':
+        stats[month]['succeeded'] += 1
+    elif snapshot.status == 'failed':
+        stats[month]['failed'] += 1
+
+for month in sorted(stats.keys()):
+    s = stats[month]
+    print(f"{month}: {s['total']} total, {s['succeeded']} succeeded, {s['failed']} failed")
+```
+
+## Troubleshooting
+
+### Import errors
+
+**Solution:** Shell loads Django environment automatically. If imports fail, check:
+
+```python
+import sys
+print(sys.path)
+```
+
+### Database locked
+
+**Solution:** Close other ArchiveBox processes:
+
+```bash
+pkill -f archivebox
+```
+
+Then retry shell.
+
+### Memory issues with large queries
+
+**Solution:** Use iterator for large querysets:
+
+```python
+# Bad: Loads all into memory
+for snapshot in Snapshot.objects.all():
+    process(snapshot)
+
+# Good: Streams from database
+for snapshot in Snapshot.objects.all().iterator(chunk_size=100):
+    process(snapshot)
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="manage" icon="terminal" href="/cli/manage">
+    Run Django management commands
+  </Card>
+  <Card title="config" icon="gear" href="/cli/config">
+    View/set configuration
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check archive statistics
+  </Card>
+  <Card title="search" icon="magnifying-glass" href="/cli/list">
+    Query snapshots via CLI
+  </Card>
+</CardGroup>
+
+## Security Note
+
+<Warning>
+  The shell provides full Python access to your archive database. Be careful with delete operations and bulk updates. Always test queries on small datasets first.
+</Warning>
+
+## Exit Shell
+
+Press `Ctrl+D` or type:
+
+```python
+exit()
+# or
+quit()
+```

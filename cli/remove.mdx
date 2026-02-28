@@ -1,0 +1,386 @@
+---
+title: archivebox remove
+description: Remove URLs and snapshots from your archive
+---
+
+The `remove` command deletes snapshots from your archive. You can optionally delete the archived content from disk as well.
+
+## Basic Usage
+
+```bash
+archivebox remove 'https://example.com'
+```
+
+```bash docker
+docker compose run archivebox remove 'https://example.com'
+```
+
+<Warning>
+  By default, `remove` only removes database entries. Use `--delete` to also remove archived files from disk.
+</Warning>
+
+## Options
+
+### `--yes`
+
+Skip confirmation prompt and remove immediately.
+
+```bash
+archivebox remove --yes 'https://example.com'
+```
+
+Without this flag, you'll be prompted to confirm:
+```
+Remove 5 snapshots? [y/N]: 
+```
+
+### `--delete`
+
+Delete archived content and metadata folder in addition to removing from index.
+
+```bash
+archivebox remove --delete 'https://example.com'
+```
+
+<Warning>
+  `--delete` permanently removes files from disk. This action cannot be undone.
+</Warning>
+
+**Without `--delete`:** Removes from database only, files remain on disk
+**With `--delete`:** Removes from database AND deletes the snapshot's output directory
+
+### `--filter-type`, `-f`
+
+Type of pattern matching to use when filtering URLs.
+
+```bash
+archivebox remove --filter-type=domain 'example.com'
+```
+
+**Available filter types:**
+
+- `exact` - Match exact URL (default)
+  ```bash
+  archivebox remove --filter-type=exact 'https://example.com'
+  ```
+
+- `substring` - Match URLs containing substring
+  ```bash
+  archivebox remove --filter-type=substring 'blog'
+  ```
+
+- `domain` - Match all URLs from domain
+  ```bash
+  archivebox remove --filter-type=domain 'example.com'
+  ```
+
+- `regex` - Match URLs by regex pattern
+  ```bash
+  archivebox remove --filter-type=regex '^https://example\.com/old/.*'
+  ```
+
+- `tag` - Match URLs by tag
+  ```bash
+  archivebox remove --filter-type=tag 'deprecated'
+  ```
+
+### `--before`
+
+Remove only URLs bookmarked before the given UNIX timestamp.
+
+```bash
+archivebox remove --before=1640995200
+```
+
+Combine with filters:
+```bash
+archivebox remove --filter-type=domain 'old-site.com' --before=1640995200
+```
+
+### `--after`
+
+Remove only URLs bookmarked after the given UNIX timestamp.
+
+```bash
+archivebox remove --after=1609459200
+```
+
+## Examples
+
+### Remove Single URL
+
+Remove from database only:
+```bash
+archivebox remove 'https://example.com/page'
+```
+
+Remove from database and delete files:
+```bash
+archivebox remove --delete 'https://example.com/page'
+```
+
+### Remove All URLs from Domain
+
+```bash
+archivebox remove --filter-type=domain --yes 'example.com'
+```
+
+With file deletion:
+```bash
+archivebox remove --filter-type=domain --delete --yes 'example.com'
+```
+
+### Remove by Tag
+
+Remove all snapshots tagged "temporary":
+```bash
+archivebox remove --filter-type=tag --yes 'temporary'
+```
+
+### Remove by Date Range
+
+Remove URLs archived in 2023:
+```bash
+# January 1, 2023 = 1672531200
+# January 1, 2024 = 1704067200
+archivebox remove --after=1672531200 --before=1704067200 --yes
+```
+
+### Remove URLs Matching Pattern
+
+Remove all URLs containing "test":
+```bash
+archivebox remove --filter-type=substring --yes 'test'
+```
+
+Remove all URLs matching regex:
+```bash
+archivebox remove --filter-type=regex --yes '^https://staging\..*'
+```
+
+### Remove Multiple URLs
+
+```bash
+archivebox remove \
+  'https://example.com/page1' \
+  'https://example.com/page2' \
+  'https://example.com/page3'
+```
+
+From file:
+```bash
+cat urls-to-remove.txt | while read url; do
+  archivebox remove --yes "$url"
+done
+```
+
+### Clean Up Old Archives
+
+Remove archives older than 2 years and delete files:
+```bash
+# Calculate timestamp for 2 years ago
+TWO_YEARS_AGO=$(date -d "2 years ago" +%s)
+archivebox remove --before=$TWO_YEARS_AGO --delete --yes
+```
+
+### Selective Domain Cleanup
+
+Remove specific domain but keep files for review:
+```bash
+# Remove from database only (keeps files)
+archivebox remove --filter-type=domain --yes 'old-project.com'
+
+# Review files in archive/
+# If satisfied, manually delete: rm -rf archive/<timestamp>
+```
+
+## Output
+
+Successful removal shows:
+
+```
+[*] Searching for matching snapshots...
+    Found 5 matching snapshots
+
+[*] Removing 5 snapshots from index...
+    ✓ Removed 5 snapshots
+    ✓ Flushed search index
+
+[√] Removed 5 of 5 snapshots
+    Remaining in archive: 1234 snapshots
+```
+
+With `--delete` flag:
+
+```
+[*] Searching for matching snapshots...
+    Found 5 matching snapshots
+
+[*] Removing 5 snapshots from index...
+    ✓ Deleted 5 output directories from disk
+    ✓ Removed 5 snapshots from database
+    ✓ Flushed search index
+
+[√] Removed 5 of 5 snapshots
+    Remaining in archive: 1234 snapshots
+```
+
+## Interactive Confirmation
+
+Without `--yes`, you'll see a confirmation prompt:
+
+```
+[*] Found 5 matching snapshots:
+    https://example.com/page1
+    https://example.com/page2
+    https://example.com/page3
+    https://example.com/page4
+    https://example.com/page5
+
+Remove these 5 snapshots from the archive? [y/N]: 
+```
+
+Type `y` and press Enter to confirm.
+
+## Understanding Remove vs Delete
+
+### `archivebox remove` (without `--delete`)
+
+- Removes snapshots from database
+- Removes from search index
+- **Keeps files on disk** in `archive/`
+- Useful for cleaning up database while preserving files
+- Can re-import later with [`archivebox init`](/cli/init)
+
+### `archivebox remove --delete`
+
+- Removes snapshots from database
+- Removes from search index
+- **Deletes files from disk** permanently
+- Frees up disk space
+- Cannot be undone
+
+## Safety Features
+
+1. **Confirmation prompt** - Requires explicit confirmation unless `--yes` is used
+2. **Preview matching snapshots** - Shows what will be removed before acting
+3. **Separate delete flag** - Files are preserved by default
+4. **Exit code** - Returns 1 if no matches found
+
+## Common Patterns
+
+### Bulk Cleanup by Domain
+
+```bash
+# 1. Preview what will be removed
+archivebox search --filter-type=domain 'old-site.com'
+
+# 2. If looks correct, remove
+archivebox remove --filter-type=domain --yes 'old-site.com'
+
+# 3. Optional: Delete files too
+archivebox remove --filter-type=domain --delete --yes 'old-site.com'
+```
+
+### Remove Failed Archives
+
+First, list failed snapshots:
+```bash
+archivebox search --status=failed
+```
+
+Then remove by filter:
+```bash
+archivebox remove --filter-type=tag 'failed' --yes
+```
+
+### Archival Policy Enforcement
+
+Remove snapshots older than retention period:
+```bash
+#!/bin/bash
+# Remove archives older than 5 years
+FIVE_YEARS_AGO=$(date -d "5 years ago" +%s)
+archivebox remove --before=$FIVE_YEARS_AGO --delete --yes
+```
+
+## Troubleshooting
+
+### No snapshots matched filters
+
+```
+[X] No Snapshots matched your filters: ['example.com'] (exact)
+```
+
+**Solution:** Check filter type and pattern:
+```bash
+# If you meant domain, not exact URL:
+archivebox remove --filter-type=domain 'example.com'
+
+# Or try substring:
+archivebox remove --filter-type=substring 'example'
+```
+
+### Permission denied when deleting files
+
+**Solution:** Check file ownership and permissions:
+```bash
+ls -la archive/
+sudo chown -R $USER:$USER archive/
+```
+
+### Accidentally removed wrong snapshots
+
+**If without `--delete`:** Re-import from disk:
+```bash
+archivebox init  # Will discover and re-import orphaned directories
+```
+
+**If with `--delete`:** Cannot be recovered unless you have backups.
+
+### Database removed but files remain
+
+If you used `remove` without `--delete`, files are intentionally preserved.
+
+**To clean up files:**
+```bash
+# Find orphaned directories
+archivebox status  # Shows orphaned count
+
+# Manually delete specific timestamp
+rm -rf archive/<timestamp>
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="add" icon="plus" href="/cli/add">
+    Add URLs back to archive
+  </Card>
+  <Card title="search" icon="magnifying-glass" href="/cli/list">
+    Find snapshots to remove
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check for orphaned content
+  </Card>
+  <Card title="update" icon="rotate" href="/cli/update">
+    Update snapshots instead of removing
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+1. **Always preview first:** Use `search` to see what matches before removing
+2. **Start without `--delete`:** Remove from database first, delete files later
+3. **Use `--yes` in scripts:** Avoid interactive prompts in automation
+4. **Keep backups:** Before bulk removal with `--delete`, backup your archive
+5. **Document reasons:** Tag snapshots before removal for audit trail
+
+```bash
+# Tag before removing
+archivebox add --tag='to-remove,reason:outdated' 'https://example.com'
+
+# Later, review and remove
+archivebox search --filter-type=tag 'to-remove'
+archivebox remove --filter-type=tag --delete --yes 'to-remove'
+```

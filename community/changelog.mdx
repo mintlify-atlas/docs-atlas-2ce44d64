@@ -1,0 +1,304 @@
+---
+title: Changelog & Releases
+description: Version history and release notes for ArchiveBox
+---
+
+# Changelog & Releases
+
+## Current Version
+
+**ArchiveBox v0.9.3** is the latest stable release.
+
+Install with:
+```bash
+pip install archivebox
+# or
+docker pull archivebox/archivebox
+```
+
+## Version History
+
+For detailed release notes and version history, see:
+
+<Card title="GitHub Releases" icon="github" href="https://github.com/ArchiveBox/ArchiveBox/releases">
+  View all releases, changelogs, and download archives on GitHub
+</Card>
+
+## Release Channels
+
+### Stable Release (`latest`)
+
+The stable release is recommended for production use:
+
+```bash
+# Install stable via pip
+pip install archivebox
+
+# Install stable via Docker
+docker pull archivebox/archivebox:latest
+```
+
+### Development Release (`dev`)
+
+The development branch contains the latest features but may be unstable:
+
+```bash
+# Install dev via pip
+pip install 'git+https://github.com/ArchiveBox/ArchiveBox@dev'
+
+# Install dev via Docker
+docker pull archivebox/archivebox:dev
+```
+
+### Specific Versions
+
+You can install specific versions:
+
+```bash
+# Install specific version via pip
+pip install archivebox==0.9.3
+
+# Install specific version via Docker
+docker pull archivebox/archivebox:v0.9.3
+```
+
+## Major Version Overview
+
+### v0.9.x Series (Current)
+
+**Key Changes:**
+- Removed Seed model, simplified architecture
+- Improved crawl management
+- Enhanced UUID-based primary keys
+- Better plugin system
+
+**Migration Path:**
+- Automatic migration from v0.8.x
+- Run `archivebox init` to migrate existing data
+
+### v0.8.x Series
+
+**Key Features:**
+- Introduced Crawl/Seed models
+- UUID primary keys
+- Enhanced status tracking
+- Depth and retry capabilities
+
+**Notable Changes:**
+- Major database schema updates
+- Improved plugin architecture
+- Better error handling
+
+### v0.7.x Series
+
+**Key Features:**
+- Tag model with many-to-many relationships
+- ArchiveResult model for extractor outputs
+- AutoField PKs
+- Enhanced web UI
+
+### v0.4.x Series
+
+**Key Features:**
+- First Django-based version
+- Basic web UI
+- SQLite database backend
+- Tags as comma-separated strings
+
+## Upgrading
+
+### Upgrade Process
+
+Always backup your data before upgrading:
+
+```bash
+# Backup your archive
+cp -r ./data ./data.backup
+
+# Upgrade ArchiveBox
+pip install --upgrade archivebox
+# or
+docker pull archivebox/archivebox:latest
+
+# Run migrations
+cd data/
+archivebox init
+```
+
+### Version Compatibility
+
+ArchiveBox maintains backward compatibility:
+
+- **v0.9.x** can read archives from v0.7.x, v0.8.x
+- **v0.8.x** can read archives from v0.7.x
+- **v0.7.x** can read archives from v0.4.x
+
+Automatic migrations run when you execute `archivebox init`.
+
+### Breaking Changes
+
+Major breaking changes are documented in release notes. Always read the release notes before upgrading across major versions.
+
+## Release Schedule
+
+ArchiveBox follows semantic versioning:
+
+- **Major versions** (x.0.0): Significant architectural changes
+- **Minor versions** (0.x.0): New features, non-breaking changes
+- **Patch versions** (0.0.x): Bug fixes, security updates
+
+Release frequency:
+- **Patch releases**: As needed for critical fixes
+- **Minor releases**: Every few months
+- **Major releases**: When significant changes warrant it
+
+## What's Changed Recently
+
+For the latest changes, see the [GitHub Releases](https://github.com/ArchiveBox/ArchiveBox/releases) page.
+
+Recent highlights:
+- Plugin system improvements
+- Better Docker support
+- Enhanced CLI experience
+- Performance optimizations
+- Bug fixes and stability improvements
+
+## Versioning Details
+
+### Python Version
+
+Current version info from `pyproject.toml`:
+
+```toml
+[project]
+name = "archivebox"
+version = "0.9.3"
+requires-python = ">=3.13"
+```
+
+### Supported Python Versions
+
+- **Recommended**: Python 3.13
+- **Minimum**: Python 3.13
+- **Tested**: Python 3.13, 3.14
+
+### Dependencies
+
+Major dependencies:
+- Django >= 6.0
+- Chromium/Chrome (for rendering)
+- SQLite3 (bundled with Python)
+
+See `pyproject.toml` for complete dependency list.
+
+## Migration Guides
+
+### Upgrading from v0.8.x to v0.9.x
+
+1. Backup your data directory
+2. Upgrade ArchiveBox: `pip install --upgrade archivebox`
+3. Run migrations: `archivebox init`
+4. Verify data integrity: `archivebox status`
+
+### Upgrading from v0.7.x to v0.9.x
+
+1. Backup your data directory
+2. Upgrade to v0.8.x first (recommended)
+3. Then upgrade to v0.9.x
+4. Run migrations: `archivebox init`
+
+### Upgrading from v0.4.x to v0.9.x
+
+1. Backup your data directory
+2. Upgrade to v0.7.x first
+3. Then upgrade to v0.9.x
+4. Run migrations at each step: `archivebox init`
+
+For detailed migration instructions, see: [Upgrading or Merging Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
+
+## Testing Releases
+
+### Release Candidates
+
+Before major releases, we publish release candidates:
+
+```bash
+# Install release candidate
+pip install archivebox==0.10.0rc1
+```
+
+Help test release candidates by:
+1. Installing in a test environment
+2. Running your typical workflows
+3. Reporting issues on GitHub
+
+### Development Builds
+
+Daily development builds are available:
+
+```bash
+# Docker development build
+docker pull archivebox/archivebox:dev
+
+# Verify build info
+docker run archivebox/archivebox:dev version
+# Check BUILD_TIME and COMMIT_HASH
+```
+
+## Deprecation Policy
+
+When features are deprecated:
+
+1. **Announcement**: Deprecation announced in release notes
+2. **Warning Period**: Feature works but shows warnings (1-2 versions)
+3. **Removal**: Feature removed in next major version
+
+Deprecated features are documented in release notes.
+
+## Security Updates
+
+Security vulnerabilities are:
+
+1. Reported via [GitHub Security Advisories](https://github.com/ArchiveBox/ArchiveBox/security/advisories)
+2. Patched as soon as possible
+3. Released in patch versions
+4. Documented in release notes
+
+Subscribe to releases on GitHub to be notified of security updates.
+
+## Contributing to Releases
+
+Help improve ArchiveBox releases:
+
+- **Test release candidates** and report issues
+- **Improve documentation** for new features
+- **Submit bug fixes** for known issues
+- **Suggest features** for future releases
+
+See our [Contributing Guide](/community/contributing) for details.
+
+## Release Notes Archive
+
+Complete release history:
+
+- [v0.9.x releases](https://github.com/ArchiveBox/ArchiveBox/releases?q=v0.9)
+- [v0.8.x releases](https://github.com/ArchiveBox/ArchiveBox/releases?q=v0.8)
+- [v0.7.x releases](https://github.com/ArchiveBox/ArchiveBox/releases?q=v0.7)
+- [All releases](https://github.com/ArchiveBox/ArchiveBox/releases)
+
+## Stay Informed
+
+Get notified about new releases:
+
+1. **Watch** the GitHub repository
+2. Follow [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) on Twitter
+3. Subscribe to the [mailing list](https://github.com/ArchiveBox/ArchiveBox/discussions)
+4. Check the [Roadmap](/community/roadmap) for upcoming features
+
+## Questions?
+
+For questions about releases:
+
+- Check [GitHub Discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)
+- Open an [issue](https://github.com/ArchiveBox/ArchiveBox/issues)
+- Ask on [Twitter](https://twitter.com/ArchiveBoxApp)

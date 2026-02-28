@@ -1,0 +1,200 @@
+---
+title: 'archivebox crawl'
+description: 'Manage Crawl records - jobs that group URLs for archiving'
+icon: 'spider-web'
+---
+
+## Overview
+
+The `archivebox crawl` command manages Crawl records in ArchiveBox. A Crawl represents a job that groups one or more URLs for archiving, typically created when you run `archivebox add`. Each Crawl can track multiple Snapshots and supports recursive crawling with configurable depth.
+
+## Model Purpose
+
+**Crawl** - A job that contains URLs to be archived. When you add URLs to ArchiveBox, a Crawl is created to track the archiving job. Each Crawl:
+- Groups one or more URLs together
+- Tracks crawl depth for recursive archiving
+- Has a status (queued, started, sealed)
+- Can be tagged for organization
+- Creates Snapshots for each URL
+
+## Subcommands
+
+### create
+
+Create a new Crawl job from URLs.
+
+```bash
+archivebox crawl create <urls...> [options]
+```
+
+**Options:**
+- `--depth`, `-d` - Max crawl depth (default: 0)
+- `--tag`, `-t` - Comma-separated tags to add
+- `--status`, `-s` - Initial status (default: queued)
+
+**Examples:**
+
+```bash
+# Create a crawl with multiple URLs
+archivebox crawl create https://example.com https://foo.com
+
+# Create a crawl with depth for recursive archiving
+archivebox crawl create https://example.com --depth=1
+
+# Create with tags
+archivebox crawl create --tag=news https://example.com
+
+# Pipeline: create crawl, then snapshots, then run
+archivebox crawl create https://example.com | archivebox snapshot create | archivebox run
+```
+
+### list
+
+List Crawls with optional filters.
+
+```bash
+archivebox crawl list [options]
+```
+
+**Options:**
+- `--status`, `-s` - Filter by status (queued, started, sealed)
+- `--urls__icontains` - Filter by URLs containing text
+- `--max-depth` - Filter by max depth
+- `--limit`, `-n` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all crawls
+archivebox crawl list
+
+# List queued crawls
+archivebox crawl list --status=queued
+
+# List crawls for specific domain
+archivebox crawl list --urls__icontains=example.com
+
+# List crawls with depth > 0
+archivebox crawl list --max-depth=1
+```
+
+### update
+
+Update Crawls from stdin JSONL.
+
+```bash
+archivebox crawl list [filters] | archivebox crawl update [options]
+```
+
+**Options:**
+- `--status`, `-s` - Set status
+- `--max-depth` - Set max depth
+
+**Examples:**
+
+```bash
+# Reset started crawls to queued
+archivebox crawl list --status=started | archivebox crawl update --status=queued
+
+# Increase depth for specific crawls
+archivebox crawl list --urls__icontains=example.com | archivebox crawl update --max-depth=2
+```
+
+### delete
+
+Delete Crawls from stdin JSONL.
+
+```bash
+archivebox crawl list [filters] | archivebox crawl delete [options]
+```
+
+**Options:**
+- `--yes`, `-y` - Confirm deletion (required)
+- `--dry-run` - Show what would be deleted without deleting
+
+**Examples:**
+
+```bash
+# Preview deletion
+archivebox crawl list --urls__icontains=spam.com | archivebox crawl delete --dry-run
+
+# Delete spam crawls
+archivebox crawl list --urls__icontains=spam.com | archivebox crawl delete --yes
+```
+
+## Common Use Cases
+
+### Batch URL Processing
+
+Create crawls for multiple URLs and process them in a pipeline:
+
+```bash
+# Create crawl → Create snapshots → Run archiving
+archivebox crawl create https://example.com https://foo.com \
+  | archivebox snapshot create \
+  | archivebox run
+```
+
+### Recursive Crawling
+
+Crawl a site with depth to archive linked pages:
+
+```bash
+# Crawl example.com and linked pages (1 level deep)
+archivebox crawl create https://example.com --depth=1
+
+# Then create snapshots and run
+archivebox crawl list --status=queued \
+  | archivebox snapshot create \
+  | archivebox run
+```
+
+### Retry Failed Crawls
+
+Reset failed or stuck crawls to retry them:
+
+```bash
+# Reset started crawls back to queued for retry
+archivebox crawl list --status=started \
+  | archivebox crawl update --status=queued
+```
+
+### Tag Organization
+
+Organize crawls with tags:
+
+```bash
+# Create tagged crawl
+archivebox crawl create --tag=research,important https://example.com
+
+# Filter by tag (requires listing snapshots since tags are on snapshots)
+archivebox snapshot list --tag=research
+```
+
+## Status Values
+
+- **queued** - Crawl is waiting to be processed
+- **started** - Crawl is currently being processed
+- **sealed** - Crawl has completed
+
+## JSONL Format
+
+Crawls are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "type": "crawl",
+  "id": "01JH...",
+  "urls": "https://example.com\nhttps://foo.com",
+  "max_depth": 0,
+  "tags_str": "news,tech",
+  "status": "queued",
+  "created_at": "2024-02-28T10:00:00Z"
+}
+```
+
+## See Also
+
+- [archivebox snapshot](/cli/snapshot) - Create Snapshots from Crawls
+- [archivebox run](/usage/cli#run) - Process queued archives
+- [archivebox add](/usage/cli#add) - High-level command that creates Crawls automatically

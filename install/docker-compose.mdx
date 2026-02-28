@@ -1,0 +1,218 @@
+---
+title: 'Docker Compose Installation'
+description: 'Install ArchiveBox using Docker Compose (recommended method)'
+icon: 'docker'
+---
+
+<Note>
+Docker Compose is the **recommended installation method** for the easiest install/update experience, best security, and all extras out-of-the-box.
+</Note>
+
+## Prerequisites
+
+- **Docker**: Install [Docker](https://docs.docker.com/get-docker/) on your system
+- **Supported Systems**: Linux, macOS, Windows
+- **CPUs**: `amd64` (`x86_64`), `arm64`, `arm7` (Raspberry Pi ≥3)
+
+## Installation
+
+<Steps>
+  <Step title="Create a directory for ArchiveBox">
+    Create a new directory to store your ArchiveBox data:
+    
+    ```bash
+    mkdir -p ~/archivebox/data && cd ~/archivebox
+    ```
+    
+    This directory can be created anywhere on your system.
+  </Step>
+
+  <Step title="Download the docker-compose.yml file">
+    Download the official `docker-compose.yml` configuration:
+    
+    ```bash
+    curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
+    ```
+    
+    <Note>
+    Read and edit the `docker-compose.yml` file to configure options as needed before continuing.
+    </Note>
+  </Step>
+
+  <Step title="Run initial setup">
+    Initialize ArchiveBox and create an admin user:
+    
+    ```bash
+    docker compose run archivebox init --setup
+    ```
+    
+    This will:
+    - Create the data directory structure
+    - Initialize the SQLite database
+    - Prompt you to create an admin user
+    
+    <Tip>
+    Alternatively, you can set `ADMIN_USERNAME` and `ADMIN_PASSWORD` in the `docker-compose.yml` file to skip the interactive prompt.
+    </Tip>
+  </Step>
+
+  <Step title="Start the server">
+    Launch the ArchiveBox web server:
+    
+    ```bash
+    docker compose up
+    ```
+    
+    The server will start and be accessible at:
+    - **Public UI**: [http://web.archivebox.localhost:8000](http://web.archivebox.localhost:8000)
+    - **Admin UI**: [http://admin.archivebox.localhost:8000](http://admin.archivebox.localhost:8000)
+    
+    <Note>
+    Set `LISTEN_HOST` in `docker-compose.yml` to change the base domain. The `web.` and `admin.` subdomains are used automatically.
+    </Note>
+  </Step>
+</Steps>
+
+## Usage
+
+### Adding URLs
+
+```bash
+# Add a single URL
+docker compose run archivebox add 'https://example.com'
+
+# Add a URL with depth-1 crawling
+docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
+```
+
+### Common Commands
+
+```bash
+# View help
+docker compose run archivebox help
+
+# Check version and dependencies
+docker compose run archivebox version
+
+# List all snapshots
+docker compose run archivebox list
+
+# Check archive status
+docker compose run archivebox status
+```
+
+<Tip>
+The CLI is completely optional. You can manage everything through the web interface, but the CLI provides more advanced options.
+</Tip>
+
+### Piping Input
+
+When piping stdin/stdout with Docker Compose, add the `-T` flag:
+
+```bash
+echo 'https://example.com' | docker compose run -T archivebox add
+docker compose run -T archivebox list --json > index.json
+```
+
+## Configuration
+
+You can configure ArchiveBox in several ways:
+
+### Environment Variables in docker-compose.yml
+
+Edit the `docker-compose.yml` file to add environment variables:
+
+```yaml
+environment:
+  - TIMEOUT=120
+  - CHECK_SSL_VALIDITY=False
+  - SAVE_ARCHIVE_DOT_ORG=False
+```
+
+### Using the config command
+
+```bash
+docker compose run archivebox config --set TIMEOUT=120
+docker compose run archivebox config --get CHROME_BINARY
+docker compose run archivebox config  # view all config
+```
+
+## Updating
+
+To update to the latest version:
+
+```bash
+# Pull the latest image
+docker compose pull
+
+# Restart the server
+docker compose down
+docker compose up
+
+# Run migrations if needed
+docker compose run archivebox init
+```
+
+## Troubleshooting
+
+### Permission Issues
+
+If you encounter permission issues, you may need to set `PUID` and `PGID` in your `docker-compose.yml`:
+
+```yaml
+environment:
+  - PUID=1000
+  - PGID=1000
+```
+
+Find your user ID with `id -u` and group ID with `id -g`.
+
+### Port Conflicts
+
+If port 8000 is already in use, modify the port mapping in `docker-compose.yml`:
+
+```yaml
+ports:
+  - "8080:8000"  # Use port 8080 instead
+```
+
+### Server Won't Stop
+
+To force stop and remove containers:
+
+```bash
+docker compose down --remove-orphans
+```
+
+### View Logs
+
+```bash
+# View logs in real-time
+docker compose logs -f
+
+# View logs for a specific service
+docker compose logs archivebox
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Import URLs" icon="file-import" href="/usage/import">
+    Learn how to import bookmarks and URLs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize ArchiveBox settings
+  </Card>
+  <Card title="Web UI" icon="browser" href="/usage/web-ui">
+    Use the web interface
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Master the command-line interface
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+- [Docker Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)
+- [Docker Compose Setup Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F)
+- [Upgrading Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)

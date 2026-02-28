@@ -1,0 +1,520 @@
+---
+title: 'Web UI Usage'
+description: 'Guide to using the ArchiveBox web interface'
+icon: 'browser'
+---
+
+## Overview
+
+ArchiveBox provides a self-hosted web interface for managing your archive through your browser. It offers both a public view for browsing snapshots and an admin interface for full archive management.
+
+## Starting the Server
+
+### With Docker Compose (Recommended)
+
+```bash
+# Configure admin credentials in docker-compose.yml
+nano docker-compose.yml  # Set ADMIN_USERNAME & ADMIN_PASSWORD
+
+# Start the server
+docker compose up
+```
+
+### With Docker
+
+```bash
+# Create admin user first
+docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
+
+# Start server
+docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+```
+
+### Bare Metal Installation
+
+```bash
+# Create admin user
+archivebox manage createsuperuser
+
+# Start server
+archivebox server 0.0.0.0:8000
+```
+
+## Accessing the Web UI
+
+Once the server is running, access it at:
+
+<CardGroup cols={2}>
+  <Card title="Public UI" icon="globe" href="http://web.archivebox.localhost:8000">
+    **http://web.archivebox.localhost:8000**
+    
+    Browse and view archived snapshots
+  </Card>
+  
+  <Card title="Admin UI" icon="user-shield" href="http://admin.archivebox.localhost:8000">
+    **http://admin.archivebox.localhost:8000**
+    
+    Full archive management and configuration
+  </Card>
+</CardGroup>
+
+<Info>
+  The `web.` and `admin.` subdomains are used automatically. Change the base domain with the `LISTEN_HOST` environment variable.
+</Info>
+
+## Public Interface
+
+The public UI provides read-only access to your archive.
+
+### Features
+
+- **Browse Snapshots** - View list of all archived URLs
+- **Search** - Find snapshots by URL, title, or content
+- **View Snapshots** - Access archived versions of pages
+- **Filter by Tags** - Browse by category or topic
+- **Timeline View** - See when pages were archived
+
+### Snapshot Detail Page
+
+Each snapshot shows:
+
+- Original URL and archived timestamp
+- Preview thumbnail/screenshot
+- Available archive formats (HTML, PDF, Screenshot, WARC, etc.)
+- Embedded content viewer
+- Download links for all formats
+
+### Accessing Archived Content
+
+Click on any format to view:
+
+- **SingleFile HTML** - Self-contained single-file version
+- **Screenshot** - PNG image of the page
+- **PDF** - Printable PDF version
+- **DOM HTML** - Full HTML with resources
+- **WARC** - Web Archive format
+- **Media** - Videos, audio files, subtitles
+- **Git Clone** - Source code repositories
+
+## Admin Interface
+
+The admin UI provides full control over your archive.
+
+### Authentication
+
+<Steps>
+  <Step title="Create Admin User">
+    ```bash
+    archivebox manage createsuperuser
+    # Or set ADMIN_USERNAME/ADMIN_PASSWORD in docker-compose.yml
+    ```
+  </Step>
+  
+  <Step title="Navigate to Admin UI">
+    Visit **http://admin.archivebox.localhost:8000**
+  </Step>
+  
+  <Step title="Login">
+    Enter your admin credentials
+  </Step>
+</Steps>
+
+### Dashboard
+
+The admin dashboard shows:
+
+- Total snapshots and disk usage
+- Recent activity
+- Active crawls and background tasks
+- System status and warnings
+
+### Adding URLs
+
+<AccordionGroup>
+  <Accordion title="Via Web Form" icon="square-plus">
+    1. Click **"Add URLs"** in the sidebar
+    2. Enter URLs (one per line)
+    3. Configure options:
+       - **Depth** - Recursive crawl depth (0-4)
+       - **Tags** - Comma-separated tags
+       - **Persona** - Browser profile for authenticated content
+       - **Parser** - URL format parser
+    4. Click **"Add"**
+    
+    The URLs will be queued for archiving.
+  </Accordion>
+  
+  <Accordion title="Via Upload" icon="file-arrow-up">
+    1. Click **"Add URLs"**
+    2. Select **"Upload File"** tab
+    3. Choose bookmarks export or text file
+    4. Configure options
+    5. Click **"Upload and Add"**
+    
+    Supported formats:
+    - Netscape HTML bookmarks
+    - Plain text (one URL per line)
+    - RSS/Atom feeds
+    - JSON, CSV
+  </Accordion>
+  
+  <Accordion title="Via Browser Bookmarklet" icon="bookmark">
+    1. In Admin UI, go to **"Add URLs"**
+    2. Drag the **"Archive this page"** bookmarklet to your bookmarks bar
+    3. Click it while on any page to archive it
+    
+    The current page URL will be sent to your ArchiveBox instance.
+  </Accordion>
+</AccordionGroup>
+
+### Managing Snapshots
+
+#### Snapshot List
+
+View and manage all snapshots:
+
+- **Search** - Filter by URL, title, tags
+- **Bulk Actions** - Update, tag, or remove multiple snapshots
+- **Sort** - By date, URL, status
+- **Export** - Download as JSON, CSV, HTML
+
+#### Snapshot Actions
+
+<Tabs>
+  <Tab title="Re-Snapshot">
+    Update an existing snapshot with fresh content:
+    
+    1. Click on a snapshot
+    2. Click the **"Re-Snapshot"** button
+    3. A new snapshot is created with current date hash
+    
+    <Note>
+      ArchiveBox adds `#YYYY-MM-DD` to the URL to create multiple snapshots of the same page.
+    </Note>
+  </Tab>
+  
+  <Tab title="Update">
+    Re-run extractors on existing snapshot:
+    
+    1. Click on a snapshot
+    2. Click **"Update"**
+    3. Select which extractors to run
+    4. Click **"Update"**
+    
+    Useful for:
+    - Completing failed extractions
+    - Adding new extractor outputs
+    - Updating with better quality
+  </Tab>
+  
+  <Tab title="Tag">
+    Organize snapshots with tags:
+    
+    1. Select snapshots
+    2. Choose **"Add tags"** from Actions
+    3. Enter comma-separated tags
+    4. Click **"Apply"**
+  </Tab>
+  
+  <Tab title="Remove">
+    Delete snapshots:
+    
+    1. Select snapshots
+    2. Choose **"Delete selected"** from Actions
+    3. Confirm deletion
+    
+    <Warning>
+      This permanently removes snapshot data from disk.
+    </Warning>
+  </Tab>
+</Tabs>
+
+### Configuration via Web UI
+
+Configure ArchiveBox settings through the admin interface:
+
+1. Navigate to **Settings** → **Configuration**
+2. Browse categories:
+   - **General** - Basic archive settings
+   - **Archiving** - Extractor configuration
+   - **Server** - Web UI settings
+   - **Security** - Authentication and permissions
+3. Modify values
+4. Click **"Save"**
+5. Restart server to apply changes
+
+<Tip>
+  Some settings require server restart. The UI will indicate which ones.
+</Tip>
+
+## User Management
+
+### Creating Users
+
+<Steps>
+  <Step title="Via Admin UI">
+    1. Go to **Authentication** → **Users**
+    2. Click **"Add User"**
+    3. Enter username and password
+    4. Set permissions and groups
+    5. Click **"Save"**
+  </Step>
+  
+  <Step title="Via CLI">
+    ```bash
+    archivebox manage createsuperuser
+    # Or create regular user:
+    archivebox manage shell
+    >>> from django.contrib.auth import get_user_model
+    >>> User = get_user_model()
+    >>> User.objects.create_user('username', 'email@example.com', 'password')
+    ```
+  </Step>
+</Steps>
+
+### Permissions
+
+Control access with three main settings:
+
+```bash
+# Allow anyone to view the index
+archivebox config --set PUBLIC_INDEX=True
+
+# Allow anyone to view snapshot content
+archivebox config --set PUBLIC_SNAPSHOTS=True
+
+# Allow anyone to add URLs (use with caution!)
+archivebox config --set PUBLIC_ADD_VIEW=False
+```
+
+<AccordionGroup>
+  <Accordion title="PUBLIC_INDEX" icon="list">
+    **Default: True**
+    
+    When enabled:
+    - Anyone can see the list of snapshots
+    - Search is available to all visitors
+    - Snapshot metadata is public
+    
+    When disabled:
+    - Only authenticated users can browse
+    - Login required to see any content
+  </Accordion>
+  
+  <Accordion title="PUBLIC_SNAPSHOTS" icon="file">
+    **Default: True**
+    
+    When enabled:
+    - Anyone can view archived content
+    - All snapshot formats are accessible
+    
+    When disabled:
+    - Login required to view snapshots
+    - Content is private
+  </Accordion>
+  
+  <Accordion title="PUBLIC_ADD_VIEW" icon="plus">
+    **Default: False**
+    
+    When enabled:
+    - Anyone can submit URLs for archiving
+    - No authentication required
+    
+    <Warning>
+      Only enable this in trusted environments! It allows anyone to add content to your archive.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+### Advanced Authentication
+
+For production deployments, consider:
+
+- **SSO Integration** - SAML, OAuth, LDAP
+- **Reverse Proxy Auth** - Nginx, Caddy, Traefik
+- **API Keys** - For programmatic access
+- **2FA** - Two-factor authentication
+
+See the [Authentication Guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication) for details.
+
+## Monitoring and Logs
+
+### Crawl Status
+
+Monitor active archiving operations:
+
+1. Navigate to **Crawls** in admin sidebar
+2. View active, completed, and failed crawls
+3. Click on a crawl to see:
+   - Progress percentage
+   - URLs processed
+   - Errors and warnings
+   - Output logs
+
+### System Logs
+
+Access logs for troubleshooting:
+
+- **Browser console** - Check browser developer tools
+- **Server logs** - View Docker/server output
+- **Archive logs** - Check `data/logs/` directory
+
+```bash
+# View recent logs
+tail -f data/logs/errors.log
+
+# Docker logs
+docker compose logs -f archivebox
+```
+
+## Advanced Features
+
+### Scheduled Archiving
+
+Set up automatic imports:
+
+1. Go to **Scheduled Jobs** in admin UI
+2. Click **"Add Schedule"**
+3. Configure:
+   - **URL or Source** - RSS feed, bookmark file, etc.
+   - **Frequency** - Hourly, daily, weekly
+   - **Depth** - Crawl depth
+   - **Tags** - Auto-tagging
+4. Click **"Save"**
+
+### Search and Filtering
+
+Advanced search features:
+
+- **Full-text search** - Search within archived content
+- **Filter by date range** - Narrow by archive date
+- **Filter by status** - Find failed/incomplete snapshots
+- **Filter by tags** - Browse by category
+- **Combined filters** - Use multiple criteria
+
+### Bulk Operations
+
+Perform actions on multiple snapshots:
+
+1. Select snapshots using checkboxes
+2. Choose action from dropdown:
+   - **Update snapshots**
+   - **Add tags**
+   - **Remove tags**
+   - **Delete**
+   - **Export**
+3. Click **"Go"**
+4. Confirm action
+
+## REST API (Alpha)
+
+<Warning>
+  The REST API is in alpha. The interface may change in future versions.
+</Warning>
+
+Access the API at `http://your-domain:8000/api/`
+
+### API Documentation
+
+Interactive API docs available at:
+- **http://your-domain:8000/api/docs** - Swagger UI
+- **http://your-domain:8000/api/redoc** - ReDoc
+
+### Example Requests
+
+```bash
+# List snapshots
+curl http://localhost:8000/api/v1/snapshots/
+
+# Add URL
+curl -X POST http://localhost:8000/api/v1/add/ \
+  -H "Content-Type: application/json" \
+  -d '{"urls": ["https://example.com"]}'
+
+# Get snapshot details
+curl http://localhost:8000/api/v1/snapshots/{id}/
+```
+
+## Customization
+
+### Custom Templates
+
+Override UI templates:
+
+```bash
+# Set custom template directory
+archivebox config --set CUSTOM_TEMPLATES_DIR=/path/to/templates
+
+# Copy and modify default templates
+mkdir -p custom_templates
+cp -r archivebox/themes/default/* custom_templates/
+# Edit templates as needed
+```
+
+### Footer Customization
+
+Add custom footer info (e.g., DMCA contact):
+
+```bash
+archivebox config --set FOOTER_INFO="Contact: dmca@example.com"
+```
+
+## Troubleshooting
+
+### Cannot Access Web UI
+
+<Steps>
+  <Step title="Check Server is Running">
+    ```bash
+    docker compose ps
+    # Or check process
+    ps aux | grep archivebox
+    ```
+  </Step>
+  
+  <Step title="Verify Port Binding">
+    ```bash
+    # Check if port 8000 is listening
+    netstat -tlnp | grep 8000
+    ```
+  </Step>
+  
+  <Step title="Check Firewall">
+    Ensure port 8000 is open in your firewall
+  </Step>
+  
+  <Step title="Test Localhost">
+    Try accessing via http://127.0.0.1:8000
+  </Step>
+</Steps>
+
+### Login Not Working
+
+- Verify admin user exists: `archivebox manage createsuperuser`
+- Check credentials match
+- Clear browser cache and cookies
+- Check server logs for authentication errors
+
+### Slow Performance
+
+- Move `index.sqlite3` to SSD if possible
+- Increase server resources (RAM, CPU)
+- Enable query caching in Django settings
+- Reduce number of extractors
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Learn command-line operations
+  </Card>
+  <Card title="Browser Extension" icon="puzzle-piece" href="/usage/browser-extension">
+    Real-time archiving
+  </Card>
+  <Card title="Configuration" icon="gear" href="/essentials/configuration">
+    Customize archiving behavior
+  </Card>
+  <Card title="Python API" icon="python" href="/usage/python-api">
+    Programmatic access
+  </Card>
+</CardGroup>

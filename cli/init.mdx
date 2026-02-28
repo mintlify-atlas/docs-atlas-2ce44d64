@@ -1,0 +1,268 @@
+---
+title: archivebox init
+description: Initialize a new ArchiveBox collection or update an existing one
+---
+
+The `init` command sets up a new ArchiveBox data directory or verifies and updates an existing collection. This is the first command you should run when setting up ArchiveBox.
+
+## Basic Usage
+
+```bash
+archivebox init
+```
+
+```bash docker
+docker compose run archivebox init
+```
+
+## What It Does
+
+### For New Collections
+
+1. **Creates directory structure:**
+   - `archive/` - Archived content storage
+   - `sources/` - Import source files
+   - `logs/` - Application logs
+
+2. **Creates configuration:**
+   - `ArchiveBox.conf` - Main configuration file
+   - `.archivebox_id` - Unique collection identifier
+
+3. **Initializes database:**
+   - Creates `index.sqlite3` with proper schema
+   - Runs all necessary migrations
+
+4. **Scans for orphaned data:**
+   - Imports snapshots from old JSON indexes (if found)
+   - Discovers orphaned archive directories
+   - Reconciles filesystem with database
+
+### For Existing Collections
+
+1. **Verifies structure** - Ensures all required directories exist
+2. **Runs migrations** - Updates database schema to latest version
+3. **Imports orphans** - Finds and imports any untracked snapshots
+4. **Creates admin user** - If `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set
+
+## Options
+
+### `--force`, `-f`
+
+Initialize even if the directory contains unrecognized files.
+
+```bash
+archivebox init --force
+```
+
+<Warning>
+  Using `--force` in a non-empty directory may overwrite existing files. Always backup your data first.
+</Warning>
+
+### `--quick`, `-q`
+
+Skip checking archive directories for orphaned snapshots. Useful for fast initialization of large archives.
+
+```bash
+archivebox init --quick
+```
+
+This speeds up initialization by:
+- Skipping JSON index parsing
+- Not scanning `archive/` for orphaned directories
+- Only running database migrations
+
+### `--install`, `-s`
+
+Automatically install dependencies and browser binaries after initialization.
+
+```bash
+archivebox init --install
+```
+
+Equivalent to running:
+```bash
+archivebox init
+archivebox install
+```
+
+## Examples
+
+### Initialize New Archive
+
+```bash
+mkdir ~/my-archive
+cd ~/my-archive
+archivebox init
+```
+
+### Initialize with Docker
+
+```bash
+mkdir ~/my-archive
+cd ~/my-archive
+docker compose run archivebox init
+```
+
+### Quick Init for Large Archives
+
+If you have thousands of snapshots and want to skip orphan detection:
+
+```bash
+archivebox init --quick
+```
+
+### Init with Auto-Install
+
+Initialize and install all dependencies in one command:
+
+```bash
+archivebox init --install
+```
+
+### Force Init in Non-Empty Directory
+
+<Warning>
+  Only use if you know the directory should become an ArchiveBox data folder.
+</Warning>
+
+```bash
+cd ~/some-folder-with-files
+archivebox init --force
+```
+
+### Create Admin User During Init
+
+Set environment variables before running init:
+
+```bash
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=MySecurePassword123
+archivebox init
+```
+
+Or in Docker:
+
+```yaml docker-compose.yml
+services:
+  archivebox:
+    environment:
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=MySecurePassword123
+```
+
+```bash
+docker compose run archivebox init
+```
+
+## Output
+
+Successful initialization shows:
+
+```
+[+] Initializing a new ArchiveBox v0.9.0 collection...
+----------------------------------------------------------------------
+
+[+] Building archive folder structure...
+    + ./archive, ./sources, ./logs...
+    + ./ArchiveBox.conf...
+
+[+] Building main SQL index and running initial migrations...
+    Operations to perform:
+      Apply all migrations: admin, auth, contenttypes, core, ...
+    Running migrations:
+      Applying core.0001_initial... OK
+      ...
+    √ ./index.sqlite3
+
+[*] Checking links from indexes and archive folders (safe to Ctrl+C)...
+    √ Loaded 0 links from existing main index.
+
+----------------------------------------------------------------------
+[√] Done. A new ArchiveBox collection was initialized (0 links).
+
+    Hint: To view your archive index, run:
+        archivebox server  # then visit http://127.0.0.1:8000
+
+    To add new links, you can run:
+        archivebox add < ~/some/path/to/list_of_links.txt
+
+    For more usage and examples, run:
+        archivebox help
+```
+
+## Interrupting Init
+
+You can safely press `Ctrl+C` during the orphan detection phase:
+
+```
+[*] Checking links from indexes and archive folders (safe to Ctrl+C)...
+^C
+⛔ Stopped checking archive directories due to Ctrl-C/SIGTERM
+    Your archive data is safe, but you should re-run `archivebox init` to finish.
+
+    Hint: In the future you can run a quick init without checking dirs:
+        archivebox init --quick
+```
+
+## Migration Process
+
+When running `init` on an existing archive, it automatically migrates from older versions:
+
+- **0.4.x → 0.9.x** - Migrates JSON index to SQL, creates Crawl records
+- **0.7.x → 0.9.x** - Adds ArchiveResult model, UUID primary keys
+- **0.8.x → 0.9.x** - Updates filesystem layout, removes Seed model
+
+See the [Update](/cli/update) command for more control over migrations.
+
+## Troubleshooting
+
+### Error: "This folder appears to already have files"
+
+**Solution:** Use `--force` if you're sure the directory should become an archive:
+```bash
+archivebox init --force
+```
+
+Or initialize in a clean directory.
+
+### Error: "Migration failed"
+
+**Solution:** Check you're using the latest ArchiveBox version:
+```bash
+archivebox version
+pip install --upgrade archivebox
+```
+
+### Slow initialization on large archives
+
+**Solution:** Use `--quick` to skip orphan detection:
+```bash
+archivebox init --quick
+```
+
+Then run [`archivebox update`](/cli/update) later to reconcile orphans.
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="add" icon="plus" href="/cli/add">
+    Add URLs after initialization
+  </Card>
+  <Card title="update" icon="rotate" href="/cli/update">
+    Update and migrate existing snapshots
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check archive health
+  </Card>
+  <Card title="config" icon="gear" href="/cli/config">
+    Configure your archive
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+After initialization:
+
+1. **Configure settings:** [`archivebox config --set KEY=VALUE`](/cli/config)
+2. **Add URLs:** [`archivebox add 'https://example.com'`](/cli/add)
+3. **Start server:** [`archivebox server`](/cli/server)

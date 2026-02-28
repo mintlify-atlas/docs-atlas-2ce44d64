@@ -1,0 +1,335 @@
+---
+title: 'pip Installation'
+description: 'Install ArchiveBox using pip for Python users'
+icon: 'python'
+---
+
+Install ArchiveBox directly on your system using `pip` for full control and native performance.
+
+## Prerequisites
+
+- **Python**: Version 3.10 or higher (3.13 recommended)
+- **Node.js**: Version 18 or higher
+- **Supported Systems**: Linux, macOS, BSD
+
+<Warning>
+Windows installation without Docker or WSL is not officially supported. Use [Docker](/install/docker-compose) or WSL2 instead.
+</Warning>
+
+## Installation
+
+<Steps>
+  <Step title="Install Python and Node.js">
+    Ensure you have the required versions installed:
+    
+    ```bash
+    # Check Python version (should be >= 3.10)
+    python3 --version
+    
+    # Check Node.js version (should be >= 18)
+    node --version
+    ```
+    
+    If you need to install or upgrade:
+    - **Python**: See [Installing Python](https://realpython.com/installing-python/)
+    - **Node.js**: See [Node.js Downloads](https://nodejs.org/en/download/package-manager/)
+  </Step>
+
+  <Step title="Install ArchiveBox with pip">
+    Install ArchiveBox and essential dependencies:
+    
+    ```bash
+    pip3 install --upgrade archivebox yt-dlp playwright
+    ```
+    
+    <Tip>
+    You can also use [`uvx`](https://docs.astral.sh/uv/guides/tools/#running-tools) instead of `pip3` for isolated tool installations.
+    </Tip>
+  </Step>
+
+  <Step title="Install Playwright Chromium">
+    Install Chromium and its system dependencies:
+    
+    ```bash
+    playwright install --with-deps chromium
+    ```
+    
+    This will download Chromium and install required system libraries.
+  </Step>
+
+  <Step title="Verify installation">
+    Check that ArchiveBox is installed correctly:
+    
+    ```bash
+    archivebox version
+    ```
+    
+    This will show version info and check for any missing dependencies.
+    
+    <Note>
+    If any extras are missing (like `curl`, `wget`, `git`, `ripgrep`), install them using your system package manager (`apt`, `brew`, `pkg`, etc.).
+    </Note>
+  </Step>
+
+  <Step title="Create a data directory">
+    Create a directory for your ArchiveBox collection:
+    
+    ```bash
+    mkdir -p ~/archivebox/data && cd ~/archivebox/data
+    ```
+  </Step>
+
+  <Step title="Initialize ArchiveBox">
+    Initialize your collection and install JavaScript dependencies:
+    
+    ```bash
+    archivebox init --setup
+    ```
+    
+    The `--setup` flag automatically installs and links JavaScript dependencies like `singlefile`, `readability`, and `mercury`.
+  </Step>
+
+  <Step title="Start the server (optional)">
+    Launch the web interface:
+    
+    ```bash
+    archivebox server 0.0.0.0:8000
+    ```
+    
+    Access the server at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+    
+    <Note>
+    The web interface is completely optional. You can use ArchiveBox entirely through the CLI.
+    </Note>
+  </Step>
+</Steps>
+
+## System Dependencies
+
+Install optional but recommended system dependencies:
+
+### Ubuntu/Debian
+
+```bash
+sudo apt install python3 python3-pip nodejs npm \
+  curl wget git ripgrep
+```
+
+### macOS
+
+```bash
+brew install python node \
+  curl wget git ripgrep
+```
+
+### FreeBSD
+
+```bash
+pkg install python3 node \
+  curl wget git ripgrep
+```
+
+## Usage
+
+### Adding URLs
+
+```bash
+# Add a single URL
+archivebox add 'https://example.com'
+
+# Add with depth-1 crawling
+archivebox add --depth=1 'https://news.ycombinator.com'
+
+# Add from stdin
+echo 'https://example.com' | archivebox add
+```
+
+### Common Commands
+
+```bash
+# View help
+archivebox help
+
+# Check version and dependencies
+archivebox version
+
+# List all snapshots
+archivebox list
+
+# Check archive status
+archivebox status
+
+# Update existing snapshots
+archivebox update
+```
+
+## Configuration
+
+Configure ArchiveBox using:
+
+```bash
+# View all configuration
+archivebox config
+
+# Get a specific value
+archivebox config --get CHROME_BINARY
+
+# Set a value (persisted to ArchiveBox.conf)
+archivebox config --set TIMEOUT=120
+
+# One-off environment variable
+env TIMEOUT=120 archivebox add 'https://example.com'
+```
+
+Or edit `ArchiveBox.conf` directly:
+
+```bash
+echo "TIMEOUT=120" >> ArchiveBox.conf
+```
+
+## Updating
+
+To update to the latest version:
+
+```bash
+# Upgrade ArchiveBox
+pip3 install --upgrade archivebox yt-dlp playwright
+
+# Update Playwright Chromium
+playwright install --with-deps chromium
+
+# Run migrations
+archivebox init
+
+# Check for issues
+archivebox version
+```
+
+## Troubleshooting
+
+### Command Not Found
+
+If `archivebox` command is not found, ensure `~/.local/bin` is in your `PATH`:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
+
+# Reload shell configuration
+source ~/.bashrc
+```
+
+Or use the full path:
+
+```bash
+python3 -m archivebox version
+```
+
+### Permission Errors
+
+<Warning>
+Never run ArchiveBox as root. It has built-in protections that will refuse to run as root user.
+</Warning>
+
+If you see permission errors, ensure you're running as a regular user:
+
+```bash
+whoami  # Should not be 'root'
+```
+
+### Missing Dependencies
+
+Run `archivebox version` to see which dependencies are missing, then install them:
+
+```bash
+# Ubuntu/Debian
+sudo apt install curl wget git ripgrep
+
+# macOS
+brew install curl wget git ripgrep
+```
+
+### Python Version Issues
+
+Ensure you're using Python 3.10 or higher:
+
+```bash
+python3 --version
+
+# If version is too old, install a newer Python
+# Ubuntu/Debian
+sudo apt install python3.11
+
+# macOS
+brew install python@3.11
+```
+
+### Chromium Issues
+
+If Playwright Chromium isn't working:
+
+```bash
+# Reinstall with system dependencies
+playwright install --with-deps chromium
+
+# Or use system Chromium
+archivebox config --set CHROME_BINARY=chromium
+```
+
+### ImportError or Module Not Found
+
+Ensure packages are installed in the same Python environment:
+
+```bash
+# Check which Python pip is using
+pip3 --version
+
+# Reinstall in the correct environment
+pip3 install --upgrade --force-reinstall archivebox
+```
+
+## Virtual Environments (Recommended)
+
+For better isolation, use a virtual environment:
+
+```bash
+# Create a virtual environment
+python3 -m venv ~/archivebox-venv
+
+# Activate it
+source ~/archivebox-venv/bin/activate
+
+# Install ArchiveBox
+pip install archivebox yt-dlp playwright
+playwright install --with-deps chromium
+
+# Use ArchiveBox
+archivebox version
+
+# Deactivate when done
+deactivate
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Import URLs" icon="file-import" href="/usage/import">
+    Learn how to import bookmarks and URLs
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration">
+    Customize ArchiveBox settings
+  </Card>
+  <Card title="Web UI" icon="browser" href="/usage/web-ui">
+    Use the web interface
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/usage/cli">
+    Master the command-line interface
+  </Card>
+</CardGroup>
+
+## Further Reading
+
+- [Bare Metal Installation Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup)
+- [pip-archivebox Repository](https://github.com/ArchiveBox/pip-archivebox)
+- [Troubleshooting Guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing)
+- [Chromium Installation](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)

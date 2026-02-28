@@ -1,0 +1,251 @@
+---
+title: 'archivebox tag'
+description: 'Manage Tag records - organize snapshots with labels'
+icon: 'tag'
+---
+
+## Overview
+
+The `archivebox tag` command manages Tag records in ArchiveBox. Tags are labels that help you organize and filter Snapshots.
+
+## Model Purpose
+
+**Tag** - A label for organizing Snapshots. Each Tag:
+- Has a unique name
+- Can be applied to multiple Snapshots
+- Supports case-insensitive filtering
+- Helps organize and categorize archives
+
+## Subcommands
+
+### create
+
+Create new Tags.
+
+```bash
+archivebox tag create <names...>
+```
+
+**Examples:**
+
+```bash
+# Create single tag
+archivebox tag create news
+
+# Create multiple tags
+archivebox tag create news tech science
+
+# Create tag with spaces
+archivebox tag create "important stuff"
+```
+
+### list
+
+List Tags with optional filters.
+
+```bash
+archivebox tag list [options]
+```
+
+**Options:**
+- `--name` - Filter by exact name
+- `--name__icontains` - Filter by name containing text
+- `--limit`, `-n` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all tags
+archivebox tag list
+
+# Find exact tag
+archivebox tag list --name=news
+
+# Find tags containing text
+archivebox tag list --name__icontains=tech
+
+# List first 10 tags
+archivebox tag list --limit=10
+```
+
+### update
+
+Update Tags from stdin JSONL (rename tags).
+
+```bash
+archivebox tag list [filters] | archivebox tag update [options]
+```
+
+**Options:**
+- `--name`, `-n` - Set new name
+
+**Examples:**
+
+```bash
+# Rename a tag
+archivebox tag list --name=oldname \
+  | archivebox tag update --name=newname
+
+# Rename tag with spaces
+archivebox tag list --name="old name" \
+  | archivebox tag update --name="new name"
+```
+
+### delete
+
+Delete Tags from stdin JSONL.
+
+```bash
+archivebox tag list [filters] | archivebox tag delete [options]
+```
+
+**Options:**
+- `--yes`, `-y` - Confirm deletion (required)
+- `--dry-run` - Show what would be deleted without deleting
+
+**Examples:**
+
+```bash
+# Preview deletion
+archivebox tag list --name=unused \
+  | archivebox tag delete --dry-run
+
+# Delete unused tag
+archivebox tag list --name=unused \
+  | archivebox tag delete --yes
+
+# Delete multiple tags
+archivebox tag list --name__icontains=old \
+  | archivebox tag delete --yes
+```
+
+## Common Use Cases
+
+### Create Tag Taxonomy
+
+Set up tags for organizing your archive:
+
+```bash
+# Create organizational tags
+archivebox tag create \
+  news \
+  research \
+  important \
+  reference \
+  "to-read" \
+  archive
+
+# Create project tags
+archivebox tag create \
+  project-alpha \
+  project-beta \
+  documentation
+```
+
+### Tag Snapshots
+
+Apply tags to snapshots:
+
+```bash
+# Tag during snapshot creation
+archivebox snapshot create https://example.com --tag=news
+
+# Add tag to existing snapshots
+archivebox snapshot list --url__icontains=example.com \
+  | archivebox snapshot update --tag=important
+
+# Tag during crawl creation
+archivebox crawl create https://example.com --tag=research,reference
+```
+
+### Filter by Tags
+
+Use tags to filter snapshots:
+
+```bash
+# List snapshots with tag
+archivebox snapshot list --tag=news
+
+# List snapshots with tag and re-tag
+archivebox snapshot list --tag=old \
+  | archivebox snapshot update --tag=archived
+
+# Delete snapshots by tag
+archivebox snapshot list --tag=spam \
+  | archivebox snapshot delete --yes
+```
+
+### Rename Tags
+
+Update tag names across all snapshots:
+
+```bash
+# Fix typo in tag name
+archivebox tag list --name=tech-artciles \
+  | archivebox tag update --name=tech-articles
+
+# Consolidate tags
+archivebox tag list --name="to read" \
+  | archivebox tag update --name=to-read
+```
+
+### Clean Up Unused Tags
+
+Find and remove tags that aren't being used:
+
+```bash
+# List all tags with snapshot counts
+archivebox tag list
+
+# Delete unused tags (check snapshot count = 0 first)
+archivebox tag list --name=unused-tag \
+  | archivebox tag delete --yes
+```
+
+### Tag-Based Workflows
+
+Create workflows using tags:
+
+```bash
+# Archive URLs with tag
+echo "https://example.com" | archivebox add --tag=news
+
+# Process tagged snapshots
+archivebox snapshot list --tag=to-archive \
+  | archivebox run
+
+# Re-extract tagged snapshots
+archivebox snapshot list --tag=important \
+  | archivebox archiveresult create --plugin=pdf \
+  | archivebox run
+
+# Export tagged snapshots
+archivebox snapshot list --tag=research > research_snapshots.jsonl
+```
+
+## Tag Naming Best Practices
+
+1. **Use lowercase** - Tags are case-insensitive, but lowercase is clearer
+2. **Use hyphens for spaces** - `tech-news` instead of `tech news`
+3. **Be consistent** - Decide on naming conventions early
+4. **Avoid special characters** - Stick to alphanumeric + hyphens
+5. **Keep names short** - Easier to type and remember
+
+## JSONL Format
+
+Tags are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "type": "tag",
+  "id": 42,
+  "name": "news",
+  "slug": "news"
+}
+```
+
+## See Also
+
+- [archivebox snapshot](/cli/snapshot) - Tag snapshots during creation or update
+- [archivebox crawl](/cli/crawl) - Tag crawls to inherit tags to snapshots
+- [archivebox add](/usage/cli#add) - Add URLs with tags

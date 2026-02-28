@@ -1,0 +1,511 @@
+---
+title: archivebox list (search)
+description: List, filter, and export information about archived snapshots
+---
+
+<Note>
+  The `list` command has been renamed to `search` in recent versions. Both names work, but `search` is preferred.
+</Note>
+
+The `search` (formerly `list`) command queries your archive database, filters snapshots by various criteria, and exports data in multiple formats.
+
+## Basic Usage
+
+```bash
+archivebox search
+```
+
+```bash docker
+docker compose run archivebox search
+```
+
+Lists all snapshots in human-readable format.
+
+## Options
+
+### `--filter-type`, `-f`
+
+Type of pattern matching for filtering URLs.
+
+```bash
+archivebox search --filter-type=domain 'example.com'
+```
+
+**Available filter types:**
+
+- `search` - Full-text search (default for substring)
+- `exact` - Exact URL match
+- `substring` - URLs containing text
+- `domain` - All URLs from domain
+- `regex` - Regular expression pattern
+- `tag` - Filter by tag name
+- `timestamp` - Match specific timestamp
+
+### `--status`, `-s`
+
+Filter snapshots by archiving status.
+
+```bash
+archivebox search --status=archived
+```
+
+**Available statuses:**
+- `indexed` - All snapshots in database (default)
+- `archived` - Successfully archived with content
+- `unarchived` - Queued or failed, no content yet
+
+### `--before`, `-b`
+
+List snapshots bookmarked before the given UNIX timestamp.
+
+```bash
+archivebox search --before=1640995200
+```
+
+### `--after`, `-a`
+
+List snapshots bookmarked after the given UNIX timestamp.
+
+```bash
+archivebox search --after=1609459200
+```
+
+### `--sort`, `-o`
+
+Field to sort results by.
+
+```bash
+archivebox search --sort='-created_at'
+```
+
+**Common sort fields:**
+- `url` - Alphabetically by URL
+- `created_at` - When added to archive
+- `bookmarked_at` - Original bookmark time
+- `downloaded_at` - When archiving completed
+- `title` - Alphabetically by page title
+- `-<field>` - Reverse sort (prefix with `-`)
+
+### `--json`, `-J`
+
+Output results in JSON format.
+
+```bash
+archivebox search --json
+```
+
+Useful for programmatic parsing.
+
+### `--html`, `-M`
+
+Output results as static HTML.
+
+```bash
+archivebox search --html > index.html
+```
+
+Creates a browsable static index.
+
+### `--csv`, `-C`
+
+Output results as CSV with specified fields.
+
+```bash
+archivebox search --csv='url,title,created_at'
+```
+
+**Common fields:**
+- `url` - Archived URL
+- `title` - Page title
+- `created_at` - Added timestamp
+- `downloaded_at` - Archived timestamp
+- `tags` - Comma-separated tags
+- `archive_size` - Total size in bytes
+
+### `--with-headers`, `-H`
+
+Include headers in JSON/HTML/CSV output.
+
+```bash
+archivebox search --json --with-headers
+```
+
+Required for CSV headers.
+
+### Filter Patterns
+
+One or more patterns to filter snapshots.
+
+```bash
+archivebox search 'example.com'
+archivebox search 'blog' 'article'
+```
+
+## Examples
+
+### List All Snapshots
+
+```bash
+archivebox search
+```
+
+Output:
+```
+./archive/2024-01-15__10-30-45__example.com
+    https://example.com
+    Example Domain
+    √ 2024-01-15 10:30:45
+
+./archive/2024-01-15__10-31-12__example.org  
+    https://example.org
+    Example Organization
+    √ 2024-01-15 10:31:12
+...
+```
+
+### Search by Domain
+
+List all snapshots from a specific domain:
+
+```bash
+archivebox search --filter-type=domain 'example.com'
+```
+
+### Search by Keyword
+
+Find all snapshots containing "tutorial":
+
+```bash
+archivebox search --filter-type=substring 'tutorial'
+```
+
+### Filter by Tag
+
+List snapshots with specific tag:
+
+```bash
+archivebox search --filter-type=tag 'important'
+```
+
+### Filter by Status
+
+List only successfully archived snapshots:
+
+```bash
+archivebox search --status=archived
+```
+
+List failed/pending snapshots:
+
+```bash
+archivebox search --status=unarchived
+```
+
+### Filter by Date Range
+
+Snapshots from 2023:
+
+```bash
+# January 1, 2023 = 1672531200
+# January 1, 2024 = 1704067200  
+archivebox search --after=1672531200 --before=1704067200
+```
+
+Snapshots from last 30 days:
+
+```bash
+THIRTY_DAYS_AGO=$(date -d "30 days ago" +%s)
+archivebox search --after=$THIRTY_DAYS_AGO
+```
+
+### Export to JSON
+
+Export all snapshots as JSON:
+
+```bash
+archivebox search --json --with-headers > archive.json
+```
+
+Export filtered results:
+
+```bash
+archivebox search --filter-type=tag 'important' --json > important.json
+```
+
+### Export to CSV
+
+Export specific fields:
+
+```bash
+archivebox search --csv='url,title,created_at' --with-headers > archive.csv
+```
+
+Full export:
+
+```bash
+archivebox search --csv='url,title,created_at,downloaded_at,tags' --with-headers > full-archive.csv
+```
+
+### Generate Static HTML Index
+
+Create browsable HTML page:
+
+```bash
+archivebox search --html --with-headers > static/index.html
+```
+
+For specific collection:
+
+```bash
+archivebox search --filter-type=tag 'public' --html > public-index.html
+```
+
+### Complex Filters
+
+Combine multiple filters:
+
+```bash
+archivebox search \
+  --filter-type=domain 'example.com' \
+  --status=archived \
+  --after=1672531200 \
+  --sort='-downloaded_at'
+```
+
+### Regex Pattern Matching
+
+Find all PDF URLs:
+
+```bash
+archivebox search --filter-type=regex '\.pdf$'
+```
+
+Find all HTTPS URLs from 2024:
+
+```bash
+archivebox search --filter-type=regex '^https://.*' --after=1704067200
+```
+
+## Output Formats
+
+### Plain Text (Default)
+
+Human-readable directory listing:
+
+```
+./archive/2024-01-15__10-30-45__example.com
+    https://example.com
+    Example Domain  
+    √ 2024-01-15 10:30:45
+```
+
+### JSON (`--json`)
+
+Machine-readable structured data:
+
+```json
+{
+  "num_snapshots": 2,
+  "snapshots": [
+    {
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "timestamp": "1234567890",
+      "created_at": "2024-01-15T10:30:45Z",
+      "downloaded_at": "2024-01-15T10:30:45Z",
+      "tags": ["important"],
+      "archive_size": 2500000
+    }
+  ]
+}
+```
+
+### HTML (`--html`)
+
+Static HTML table:
+
+```html
+<table>
+  <thead>
+    <tr>
+      <th>URL</th>
+      <th>Title</th>
+      <th>Date</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="https://example.com">https://example.com</a></td>
+      <td>Example Domain</td>
+      <td>2024-01-15 10:30:45</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+### CSV (`--csv`)
+
+Spreadsheet-compatible:
+
+```csv
+url,title,created_at
+https://example.com,Example Domain,2024-01-15T10:30:45Z
+https://example.org,Example Org,2024-01-15T10:31:12Z
+```
+
+## Common Use Cases
+
+### Inventory Report
+
+Generate CSV report of entire archive:
+
+```bash
+archivebox search \
+  --csv='url,title,created_at,archive_size,tags' \
+  --with-headers \
+  --sort='created_at' \
+  > inventory-$(date +%Y%m%d).csv
+```
+
+### Public Archive Index
+
+Create public HTML index:
+
+```bash
+archivebox search \
+  --filter-type=tag 'public' \
+  --status=archived \
+  --html \
+  --with-headers \
+  > public/index.html
+```
+
+### Find Broken Archives
+
+List unarchived snapshots:
+
+```bash
+archivebox search --status=unarchived --json | jq '.snapshots[].url'
+```
+
+### Check Archive Growth
+
+Snapshots added this month:
+
+```bash
+MONTH_START=$(date -d "$(date +%Y-%m-01)" +%s)
+archivebox search --after=$MONTH_START | wc -l
+```
+
+### Tag-Based Collections
+
+Generate separate indexes per tag:
+
+```bash
+for tag in important work personal; do
+  archivebox search \
+    --filter-type=tag "$tag" \
+    --html \
+    > "collections/${tag}.html"
+done
+```
+
+### Data Analysis
+
+Export for analysis in Python/R:
+
+```bash
+archivebox search --json > data.json
+```
+
+```python
+import json
+with open('data.json') as f:
+    archive = json.load(f)
+    
+for snapshot in archive['snapshots']:
+    print(snapshot['url'], snapshot['archive_size'])
+```
+
+## Performance Tips
+
+- **Use filters:** Narrow results with `--filter-type` and `--status`
+- **Direct queries:** Query database directly, no filesystem scanning
+- **Index usage:** Filters use database indexes for fast queries
+- **Pagination:** For very large results, use `--after`/`--before` to paginate
+
+## Troubleshooting
+
+### No results found
+
+```
+[!] No Snapshots matched your filters: ['example'] (substring)
+```
+
+**Solution:** Try different filter type:
+```bash
+archivebox search --filter-type=domain 'example.com'
+```
+
+### Empty output
+
+**Solution:** Check archive has snapshots:
+```bash
+archivebox status
+```
+
+### JSON parsing errors
+
+**Solution:** Ensure `--with-headers` is used:
+```bash
+archivebox search --json --with-headers
+```
+
+### CSV missing headers
+
+**Solution:** Add `--with-headers` flag:
+```bash
+archivebox search --csv='url,title' --with-headers
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Archive statistics and health
+  </Card>
+  <Card title="add" icon="plus" href="/cli/add">
+    Add more snapshots
+  </Card>
+  <Card title="remove" icon="trash" href="/cli/remove">
+    Remove filtered snapshots
+  </Card>
+  <Card title="update" icon="rotate" href="/cli/update">
+    Update filtered snapshots
+  </Card>
+</CardGroup>
+
+## API Integration
+
+For programmatic access, use JSON output:
+
+```bash
+#!/bin/bash
+# Get all archived URLs
+URLS=$(archivebox search --status=archived --json | jq -r '.snapshots[].url')
+
+for url in $URLS; do
+  echo "Archived: $url"
+done
+```
+
+Or use the Python API directly:
+
+```python
+from archivebox.core.models import Snapshot
+
+for snapshot in Snapshot.objects.filter(status='archived'):
+    print(snapshot.url, snapshot.title)
+```
+
+See [API Reference](/api-reference/overview) for more details.

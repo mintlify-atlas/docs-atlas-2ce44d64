@@ -1,0 +1,411 @@
+---
+title: Upgrading ArchiveBox
+description: How to upgrade ArchiveBox and migrate data between versions
+---
+
+This guide covers upgrading ArchiveBox to newer versions and handling database migrations.
+
+## Overview
+
+ArchiveBox uses Django migrations to evolve the database schema. When upgrading:
+
+1. **Backup your data** (always!)
+2. **Update ArchiveBox** package
+3. **Run migrations** with `archivebox init`
+4. **Verify** the upgrade worked
+
+<Warning>
+Always backup your data before upgrading! While migrations are tested, unexpected issues can occur.
+</Warning>
+
+## Backup Before Upgrading
+
+```bash
+# Full backup (recommended)
+tar -czf archivebox-backup-$(date +%Y%m%d).tar.gz ~/archivebox/data/
+
+# Or just the database
+cp ~/archivebox/data/index.sqlite3 ~/archivebox/data/index.sqlite3.backup
+```
+
+See [Backups](/advanced/backups) for complete backup strategies.
+
+## Upgrading Methods
+
+### Upgrading with pip
+
+```bash
+# Upgrade ArchiveBox
+pip install --upgrade archivebox yt-dlp playwright
+
+# Update browser if needed
+playwright install --with-deps chromium
+
+# Run migrations
+cd ~/archivebox/data
+archivebox init
+
+# Verify
+archivebox version
+archivebox status
+```
+
+### Upgrading with Docker
+
+**Docker Compose:**
+```bash
+# Pull latest image
+docker compose pull
+
+# Restart with new image
+docker compose down
+docker compose up -d
+
+# Migrations run automatically on startup
+# Or run manually:
+docker compose run archivebox init
+```
+
+**Plain Docker:**
+```bash
+# Pull latest
+docker pull archivebox/archivebox:latest
+
+# Run migrations
+docker run -v $PWD:/data -it archivebox/archivebox init
+```
+
+### Upgrading with apt/brew
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt upgrade archivebox
+
+# macOS
+brew update
+brew upgrade archivebox
+
+# Then run migrations
+cd ~/archivebox/data
+archivebox init
+```
+
+## Migration Process
+
+### What Happens During Migration
+
+When you run `archivebox init`, it:
+
+1. **Checks** current database schema version
+2. **Applies** any pending Django migrations
+3. **Migrates data** to new schema if needed
+4. **Updates** indexes and constraints
+5. **Verifies** the migration succeeded
+
+### Running Migrations Manually
+
+```bash
+# Check migration status
+archivebox manage showmigrations
+
+# Apply migrations
+archivebox manage migrate
+
+# Or use init (recommended)
+archivebox init
+```
+
+### Viewing Migration History
+
+```bash
+# List applied migrations
+sqlite3 index.sqlite3 "SELECT app, name FROM django_migrations WHERE app='core' ORDER BY id;"
+
+# Check table schema
+sqlite3 index.sqlite3 "PRAGMA table_info(core_snapshot);"
+```
+
+## Version-Specific Upgrade Notes
+
+### Upgrading from 0.4.x to 0.9.x
+
+**Major changes**:
+- Tags changed from comma-separated strings to M2M relationships
+- ArchiveResult model added for better result tracking
+- UUID primary keys instead of AutoField
+- Crawl model added
+
+**Migration process**:
+```bash
+# Backup (critical!)
+cp index.sqlite3 index.sqlite3.pre-upgrade
+
+# Upgrade
+pip install --upgrade archivebox
+archivebox init
+
+# Verify all snapshots preserved
+archivebox list | wc -l
+```
+
+**Expected changes**:
+- Migration may take several minutes for large archives
+- All snapshots and metadata preserved
+- Tags converted to proper relationships
+- Archive files unchanged on disk
+
+### Upgrading from 0.7.x to 0.9.x
+
+**Major changes**:
+- Crawl model structure changes
+- Seed model removed
+- UUID PKs if not already migrated
+
+**Migration process**:
+```bash
+cp index.sqlite3 index.sqlite3.backup
+pip install --upgrade archivebox
+archivebox init
+```
+
+**Potential issues**:
+- Seed references removed (if you had custom code using Seeds)
+- Crawl-to-Snapshot relationships updated
+
+### Upgrading from 0.8.x (dev) to 0.9.x
+
+**Major changes**:
+- Seed model removed
+- Squashed migrations for clean installs
+
+**Migration process**:
+```bash
+cp index.sqlite3 index.sqlite3.backup
+pip install --upgrade archivebox
+archivebox init
+```
+
+**Note**: If upgrading from dev branch, you may have intermediate migrations. The system handles this automatically.
+
+## Troubleshooting Migrations
+
+### "No migrations to apply" but schema is wrong
+
+**Cause**: Migration state out of sync with actual schema
+
+**Check schema**:
+```bash
+sqlite3 index.sqlite3 ".schema core_snapshot"
+```
+
+**Solution**:
+```bash
+# Check what Django thinks is applied
+archivebox manage showmigrations
+
+# If needed, fake-apply migrations (CAREFUL!)
+archivebox manage migrate --fake core 0023_new_schema
+```
+
+<Warning>
+Only use `--fake` if you're certain the schema is already correct. Faking migrations can cause data corruption if done incorrectly.
+</Warning>
+
+### Migration fails with integrity error
+
+**Example error**: `UNIQUE constraint failed: core_snapshot.url`
+
+**Cause**: Duplicate data that violates new constraints
+
+**Solution**:
+```bash
+# Find duplicates
+sqlite3 index.sqlite3 "SELECT url, COUNT(*) FROM core_snapshot GROUP BY url HAVING COUNT(*) > 1;"
+
+# Remove duplicates before migration
+archivebox remove --duplicates
+
+# Or manually in SQL (careful!)
+sqlite3 index.sqlite3
+```
+
+### Migration hangs or times out
+
+**Cause**: Large database or locked database
+
+**Solution**:
+```bash
+# Check for other ArchiveBox processes
+ps aux | grep archivebox
+
+# Kill if safe
+kill <pid>
+
+# Check database lock
+lsof index.sqlite3
+
+# Try migration again
+archivebox init
+```
+
+### "Table already exists" error
+
+**Cause**: Partially applied migration
+
+**Solution**:
+```bash
+# Check migration status
+archivebox manage showmigrations
+
+# Check actual tables
+sqlite3 index.sqlite3 ".tables"
+
+# Fake-apply if table really exists
+archivebox manage migrate --fake <migration_name>
+```
+
+### Data loss after migration
+
+**Recovery**:
+```bash
+# Restore from backup
+cp index.sqlite3.backup index.sqlite3
+
+# Try migration again
+archivebox init
+
+# If still failing, report issue with:
+# - ArchiveBox version (old and new)
+# - Migration error messages
+# - Database schema (before and after)
+```
+
+## Testing Migrations
+
+### Dry Run
+
+There's no official dry-run for migrations, but you can test on a copy:
+
+```bash
+# Make a copy of your data
+cp -r ~/archivebox/data ~/archivebox/data-test
+
+# Test upgrade on copy
+cd ~/archivebox/data-test
+archivebox init
+
+# Verify
+archivebox status
+archivebox list | wc -l
+
+# If successful, upgrade real data
+cd ~/archivebox/data
+archivebox init
+```
+
+### Verify Migration Success
+
+```bash
+# Check version
+archivebox version
+
+# Check status
+archivebox status
+
+# Count snapshots (should match pre-upgrade count)
+archivebox list | wc -l
+
+# Test basic operations
+archivebox list
+archivebox config
+
+# Verify database integrity
+sqlite3 index.sqlite3 "PRAGMA integrity_check;"
+```
+
+## Version Compatibility
+
+### Supported Upgrade Paths
+
+- ✅ **0.4.x → 0.9.x**: Fully supported, tested
+- ✅ **0.7.x → 0.9.x**: Fully supported, tested
+- ✅ **0.8.x → 0.9.x**: Fully supported, tested
+- ⚠️  **Very old versions (&lt;0.4)**: May require intermediate upgrades
+
+### Downgrading
+
+<Warning>
+Downgrading is not supported. Database schema changes are one-way.
+</Warning>
+
+If you need to downgrade:
+1. Restore from backup made before upgrade
+2. Reinstall old ArchiveBox version
+
+**Never** run older ArchiveBox on a newer database schema.
+
+## Migration Best Practices
+
+### Before Upgrading
+
+1. ✅ **Backup everything**
+2. ✅ **Read release notes** for breaking changes
+3. ✅ **Test on a copy** if upgrading major versions
+4. ✅ **Check disk space** (migrations may temporarily double size)
+5. ✅ **Note current snapshot count** for verification
+
+### During Upgrade
+
+1. ✅ **Stop any running archiving** operations
+2. ✅ **Close web UI** sessions
+3. ✅ **Run migrations** with `archivebox init`
+4. ✅ **Watch for errors** in output
+5. ✅ **Don't interrupt** the migration process
+
+### After Upgrading
+
+1. ✅ **Verify snapshot count** matches pre-upgrade
+2. ✅ **Test basic operations** (list, add, etc.)
+3. ✅ **Check web UI** works
+4. ✅ **Review logs** for warnings
+5. ✅ **Keep backup** for a few days
+
+## Rollback Plan
+
+If upgrade fails:
+
+```bash
+# 1. Stop ArchiveBox
+pkill -f archivebox
+
+# 2. Restore database backup
+cp index.sqlite3.backup index.sqlite3
+
+# 3. Reinstall old version
+pip install archivebox==0.7.2  # example
+
+# 4. Verify
+archivebox version
+archivebox status
+```
+
+## Getting Help
+
+If you encounter upgrade issues:
+
+1. **Check [Troubleshooting](/advanced/troubleshooting)** guide
+2. **Search existing [issues](https://github.com/ArchiveBox/ArchiveBox/issues)**
+3. **Ask in [discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)**
+4. **Report bugs** with:
+   - Old and new versions
+   - Full error output
+   - Migration history (`archivebox manage showmigrations`)
+   - Database schema (`sqlite3 index.sqlite3 .schema`)
+
+## Related Documentation
+
+- [Backups](/advanced/backups) - Backup strategies before upgrading
+- [Data Model](/advanced/data-model) - Understanding schema changes
+- [Troubleshooting](/advanced/troubleshooting) - Debug migration issues
+- [Community](/community/changelog) - Release notes and changelogs

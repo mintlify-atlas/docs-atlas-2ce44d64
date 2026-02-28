@@ -1,0 +1,447 @@
+---
+title: Dependencies and Extractors
+description: Configure ArchiveBox dependencies and extraction tools
+---
+
+# Dependencies and Extractors
+
+ArchiveBox uses a variety of industry-standard tools to extract different types of content from web pages. Understanding these dependencies helps you configure ArchiveBox for your specific archiving needs.
+
+## Overview
+
+To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party libraries and tools that specialize in extracting different types of content.
+
+<Tip>
+  **Docker Recommended**: For easier dependency management and better security, use the [official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) which provides all dependencies pre-installed.
+</Tip>
+
+## Core Dependencies
+
+These are the essential dependencies that power ArchiveBox:
+
+### Python Ecosystem
+
+<ParamField path="Python" type="version" default=">=3.10">
+  Python runtime (3.13 recommended)
+</ParamField>
+
+<ParamField path="Django" type="library">
+  Powers the Web UI and REST API
+</ParamField>
+
+<ParamField path="Django Ninja" type="library">
+  Provides the REST API framework
+</ParamField>
+
+<ParamField path="SQLite" type="database">
+  Fast & durable metadata storage in `index.sqlite3`
+</ParamField>
+
+### JavaScript Ecosystem
+
+<ParamField path="Node.js" type="version" default=">=18">
+  Required for readability, singlefile, and other extractors
+</ParamField>
+
+<ParamField path="npm" type="package manager">
+  Installs JavaScript-based extractors
+</ParamField>
+
+## Extraction Tools
+
+These optional dependencies are used to extract different types of content:
+
+### Chrome/Chromium (Highly Recommended)
+
+<ParamField path="chromium/chrome" type="browser">
+  Used for screenshots, PDF generation, DOM snapshots, and headless JavaScript execution.
+  
+  **What it extracts:**
+  - Screenshots (PNG)
+  - PDF snapshots
+  - DOM HTML after JavaScript execution
+  - Page metadata (title, favicon, headers)
+  
+  **Install:**
+  ```bash
+  # Ubuntu/Debian
+  apt install chromium-browser
+  
+  # macOS
+  brew install chromium
+  
+  # With playwright (recommended for pip installs)
+  pip install playwright
+  playwright install --with-deps chromium
+  ```
+  
+  **Configure:**
+  ```bash
+  archivebox config --set CHROME_BINARY=chromium
+  archivebox config --set CHROME_HEADLESS=True
+  ```
+</ParamField>
+
+### wget (Recommended)
+
+<ParamField path="wget" type="downloader">
+  Downloads HTML, static files, and creates WARC archives.
+  
+  **What it extracts:**
+  - Raw HTML files
+  - Static assets (CSS, JS, images)
+  - WARC (Web ARChive) files
+  
+  **Install:**
+  ```bash
+  # Ubuntu/Debian
+  apt install wget
+  
+  # macOS
+  brew install wget
+  ```
+  
+  **Configure:**
+  ```bash
+  archivebox config --set USE_WGET=True
+  archivebox config --set SAVE_WGET=True
+  archivebox config --set SAVE_WARC=True
+  ```
+</ParamField>
+
+### curl
+
+<ParamField path="curl" type="downloader">
+  Fetches HTTP headers, favicons, and submits to Archive.org.
+  
+  **What it extracts:**
+  - HTTP response headers
+  - Favicons
+  - Archive.org submissions
+  
+  **Install:**
+  ```bash
+  # Usually pre-installed on most systems
+  # Ubuntu/Debian
+  apt install curl
+  
+  # macOS
+  brew install curl
+  ```
+</ParamField>
+
+### yt-dlp (Optional)
+
+<ParamField path="yt-dlp" type="media downloader">
+  Downloads audio, video, and subtitles from YouTube and 1000+ other sites.
+  
+  **What it extracts:**
+  - Video files (MP4, WebM, etc.)
+  - Audio files (MP3, M4A, etc.)
+  - Subtitles and closed captions
+  - Video metadata and thumbnails
+  
+  **Install:**
+  ```bash
+  pip install yt-dlp
+  
+  # Or system package manager
+  brew install yt-dlp  # macOS
+  apt install yt-dlp   # Ubuntu/Debian
+  ```
+  
+  **Configure:**
+  ```bash
+  archivebox config --set SAVE_YTDLP=True
+  archivebox config --set YTDLP_MAX_SIZE=2g
+  archivebox config --set YTDLP_TIMEOUT=3600
+  ```
+  
+  <Warning>
+    Media downloads can consume significant disk space. Set appropriate size limits with `YTDLP_MAX_SIZE`.
+  </Warning>
+</ParamField>
+
+### git (Optional)
+
+<ParamField path="git" type="version control">
+  Clones git repositories from GitHub, GitLab, Bitbucket, etc.
+  
+  **What it extracts:**
+  - Full git repository clones
+  - All branches and history
+  - README and source code
+  
+  **Install:**
+  ```bash
+  # Ubuntu/Debian
+  apt install git
+  
+  # macOS
+  brew install git
+  ```
+  
+  **Configure:**
+  ```bash
+  archivebox config --set SAVE_GIT=True
+  archivebox config --set GIT_DOMAINS=github.com,gitlab.com,bitbucket.org
+  ```
+</ParamField>
+
+### SingleFile (Recommended)
+
+<ParamField path="singlefile" type="html archiver">
+  Saves web pages as self-contained single HTML files.
+  
+  **What it extracts:**
+  - Complete page as single HTML file
+  - All CSS, JS, and images embedded inline
+  
+  **Install:**
+  Automatically installed by ArchiveBox during `archivebox init --setup`
+  
+  **Configure:**
+  ```bash
+  archivebox config --set SAVE_SINGLEFILE=True
+  ```
+</ParamField>
+
+### Readability (Recommended)
+
+<ParamField path="readability" type="content extractor">
+  Extracts article text and main content from web pages.
+  
+  **What it extracts:**
+  - Clean article text (HTML and JSON)
+  - Main content without ads/navigation
+  
+  **Install:**
+  Automatically installed by ArchiveBox during `archivebox init --setup`
+  
+  **Configure:**
+  ```bash
+  archivebox config --set SAVE_READABILITY=True
+  ```
+</ParamField>
+
+### Mercury Parser (Optional)
+
+<ParamField path="postlight/parser" type="content extractor">
+  Alternative article extractor for forums, threads, and articles.
+  
+  **Install:**
+  Automatically installed by ArchiveBox during `archivebox init --setup`
+</ParamField>
+
+## Checking Dependencies
+
+Check which dependencies are installed and their versions:
+
+```bash
+archivebox --version
+```
+
+This displays:
+- ArchiveBox version
+- Python version
+- All installed dependencies and their versions
+- Missing dependencies (if any)
+
+## Installing Dependencies
+
+### Automatic Installation
+
+Run the setup command to auto-install JavaScript dependencies:
+
+```bash
+archivebox init --setup
+```
+
+This installs:
+- singlefile
+- readability
+- mercury parser
+- Other JavaScript-based extractors
+
+### Manual Installation
+
+#### Python Dependencies
+
+```bash
+# Using pip
+pip install archivebox yt-dlp playwright
+playwright install --with-deps chromium
+
+# Using uv (recommended for development)
+uv sync --all-extras
+```
+
+#### System Dependencies
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install python3 nodejs npm curl wget git chromium-browser
+
+# macOS (Homebrew)
+brew install python node curl wget git chromium
+
+# Arch Linux
+sudo pacman -S python nodejs npm curl wget git chromium
+```
+
+## Enabling/Disabling Extractors
+
+You can enable or disable specific extractors:
+
+```bash
+# Disable PDF generation (faster archiving)
+archivebox config --set SAVE_PDF=False
+
+# Enable media downloads
+archivebox config --set SAVE_YTDLP=True
+
+# Disable Archive.org submissions (private mode)
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+```
+
+Or edit `ArchiveBox.conf`:
+
+```ini
+[ARCHIVE_METHOD_TOGGLES]
+SAVE_TITLE = True
+SAVE_FAVICON = True
+SAVE_WGET = True
+SAVE_WARC = True
+SAVE_PDF = False
+SAVE_SCREENSHOT = True
+SAVE_DOM = True
+SAVE_SINGLEFILE = True
+SAVE_READABILITY = True
+SAVE_GIT = True
+SAVE_YTDLP = False
+SAVE_ARCHIVE_DOT_ORG = True
+```
+
+## Required vs Optional Dependencies
+
+### Required
+
+- **Python 3.10+**: Core runtime
+- **SQLite**: Database (included with Python)
+
+### Highly Recommended
+
+- **Chromium/Chrome**: For high-quality snapshots
+- **wget**: For HTML and WARC archives
+- **curl**: For metadata and headers
+- **Node.js**: For JavaScript-based extractors
+
+### Optional
+
+- **yt-dlp**: Only needed for media archiving
+- **git**: Only needed for repository archiving
+- **SingleFile/Readability**: Auto-installed as needed
+
+<Info>
+  ArchiveBox automatically disables extractors that rely on missing dependencies. You don't need to install everything to use ArchiveBox.
+</Info>
+
+## Dependency Configuration
+
+Configure binary paths and options:
+
+```bash
+# Set custom binary paths
+archivebox config --set CHROME_BINARY=/usr/bin/chromium
+archivebox config --set WGET_BINARY=/usr/local/bin/wget
+archivebox config --set GIT_BINARY=/opt/git/bin/git
+
+# Disable specific tools
+archivebox config --set USE_CHROME=False
+archivebox config --set USE_WGET=False
+archivebox config --set USE_GIT=False
+```
+
+Or in `ArchiveBox.conf`:
+
+```ini
+[DEPENDENCY_CONFIG]
+USE_CURL = True
+USE_WGET = True
+USE_CHROME = True
+USE_YOUTUBEDL = True
+USE_GIT = True
+
+CURL_BINARY = curl
+GIT_BINARY = git
+WGET_BINARY = wget
+YOUTUBEDL_BINARY = yt-dlp
+CHROME_BINARY = chromium
+```
+
+## Troubleshooting
+
+### Missing Dependencies
+
+If `archivebox --version` shows missing dependencies:
+
+1. Install the missing packages using your package manager
+2. Ensure binaries are in your `$PATH`
+3. Set custom paths with `archivebox config --set BINARY_NAME=/path/to/binary`
+
+### Chrome/Chromium Issues
+
+Common Chrome problems:
+
+```bash
+# Set correct binary path
+archivebox config --set CHROME_BINARY=chromium
+# or
+archivebox config --set CHROME_BINARY=/usr/bin/google-chrome
+
+# Disable sandbox (only in Docker)
+archivebox config --set CHROME_SANDBOX=False
+
+# Use headless mode
+archivebox config --set CHROME_HEADLESS=True
+```
+
+See the [Chromium Install Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install) for detailed troubleshooting.
+
+### Version Compatibility
+
+Keep dependencies up-to-date:
+
+```bash
+# Update Python packages
+pip install --upgrade archivebox yt-dlp
+
+# Update system packages
+apt update && apt upgrade  # Ubuntu/Debian
+brew upgrade               # macOS
+
+# Update JavaScript packages
+archivebox init --setup
+```
+
+<Warning>
+  If not using Docker, you're responsible for keeping dependencies up-to-date and ensuring version compatibility.
+</Warning>
+
+## Learn More
+
+- [Install Wiki (Dependencies)](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies)
+- [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)
+- [Troubleshooting (Installing)](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration Overview" icon="gear" href="/config/overview">
+    Learn about ArchiveBox configuration methods
+  </Card>
+  <Card title="Storage Configuration" icon="hard-drive" href="/config/storage">
+    Configure storage backends and cloud storage
+  </Card>
+</CardGroup>

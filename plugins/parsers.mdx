@@ -1,0 +1,376 @@
+---
+title: 'Parser Plugins'
+description: 'URL parsing plugins for crawling and feed processing'
+---
+
+## What are Parsers?
+
+Parser plugins extract URLs from various input formats and feed them into ArchiveBox's crawl queue. They enable recursive crawling by discovering new URLs from archived content.
+
+## Parser Types
+
+### Input Format Parsers
+
+These parsers process different URL list formats:
+
+#### HTML URLs
+Parses URLs from HTML files.
+
+- **Plugin**: `parse_html_urls`
+- **Input**: HTML files (bookmarks exports, saved pages)
+- **Config**:
+  - `PARSE_HTML_URLS_ENABLED` (default: `true`)
+- **Extracts**: Links from `<a>` tags, bookmarks
+- **Use case**: Import browser bookmarks, HTML bookmark exports
+
+<Info>
+Different from `parse_dom_outlinks` - this parser reads static HTML files, not live DOM.
+</Info>
+
+#### RSS/Atom Feeds
+Parses URLs from RSS and Atom feeds.
+
+- **Plugin**: `parse_rss_urls`
+- **Input**: RSS/Atom XML feeds
+- **Config**:
+  - `PARSE_RSS_URLS_ENABLED` (default: `true`)
+- **Extracts**: Article links from feed entries
+- **Use case**: Subscribe to blogs, news sites, podcasts
+
+#### Plain Text URLs
+Parses newline-separated URL lists.
+
+- **Plugin**: `parse_txt_urls`
+- **Input**: Text files with one URL per line
+- **Config**:
+  - `PARSE_TXT_URLS_ENABLED` (default: `true`)
+- **Extracts**: URLs from plain text
+- **Use case**: Custom URL lists, exports from other tools
+
+#### JSONL URLs
+Parses JSON Lines format.
+
+- **Plugin**: `parse_jsonl_urls`
+- **Input**: JSONL files with URL objects
+- **Config**:
+  - `PARSE_JSONL_URLS_ENABLED` (default: `true`)
+- **Extracts**: URLs from JSON objects
+- **Format**:
+  ```json
+  {"url": "https://example.com", "title": "Example"}
+  {"url": "https://another.com", "tags": ["blog"]}
+  ```
+- **Use case**: Structured data imports, API exports
+
+#### Netscape Bookmarks
+Parses Netscape bookmark format (common browser export).
+
+- **Plugin**: `parse_netscape_urls`
+- **Input**: Netscape bookmark HTML
+- **Config**:
+  - `PARSE_NETSCAPE_URLS_ENABLED` (default: `true`)
+- **Extracts**: Bookmarks with folders and tags
+- **Use case**: Firefox/Chrome bookmark exports
+
+### Recursive Crawl Parsers
+
+These parsers enable recursive crawling by extracting outlinks:
+
+#### DOM Outlinks
+Extracts outbound links from the live DOM.
+
+- **Plugin**: `parse_dom_outlinks`
+- **Input**: Live browser DOM (via CDP)
+- **Config**:
+  - `PARSE_DOM_OUTLINKS_ENABLED` (default: `true`)
+  - `MAX_DEPTH` - Maximum crawl depth
+- **Dependencies**: chrome
+- **Extracts**: All `<a>` tags from rendered page
+- **Use case**: Recursive website archiving, follow links automatically
+
+<Note>
+This parser runs during the snapshot phase and queries the browser's DOM directly via Chrome DevTools Protocol, not from saved HTML files.
+</Note>
+
+## Parser Workflow
+
+### Import Phase
+
+When you add content to ArchiveBox:
+
+```bash
+# Add from different formats
+archivebox add < urls.txt          # parse_txt_urls
+archivebox add < bookmarks.html    # parse_html_urls or parse_netscape_urls
+archivebox add < feed.xml          # parse_rss_urls
+archivebox add < data.jsonl        # parse_jsonl_urls
+```
+
+1. ArchiveBox detects the input format
+2. Appropriate parser plugin extracts URLs
+3. URLs are added to the crawl queue
+4. Snapshots are created for each URL
+
+### Recursive Crawl Phase
+
+During snapshot archiving:
+
+```bash
+# Enable recursive crawling
+archivebox add --depth=1 https://example.com
+```
+
+1. Page is archived by extractor plugins (dom, singlefile, etc.)
+2. `parse_dom_outlinks` extracts links from the page
+3. New URLs are added to queue (respecting `MAX_DEPTH`)
+4. Process repeats for discovered URLs
+
+## Parser Configuration
+
+### Enable/Disable Parsers
+
+```bash
+# Disable specific parsers
+export PARSE_RSS_URLS_ENABLED=False
+
+# Only enable specific parsers
+export PARSE_HTML_URLS_ENABLED=True
+export PARSE_TXT_URLS_ENABLED=True
+```
+
+### Recursive Crawl Settings
+
+Control how deep to crawl:
+
+```bash
+# Set maximum crawl depth
+export MAX_DEPTH=2
+
+# Don't follow outlinks (depth=0)
+export MAX_DEPTH=0
+
+# Unlimited depth (careful!)
+export MAX_DEPTH=-1
+```
+
+### URL Filtering
+
+Control which URLs are followed:
+
+```bash
+# Only archive specific domains
+export URL_ALLOWLIST="example.com,blog.example.com"
+
+# Exclude specific patterns
+export URL_DENYLIST="facebook.com,ads.example.com"
+
+# Regex patterns
+export URL_ALLOWLIST_REGEX=".*\\.pdf$"
+export URL_DENYLIST_REGEX=".*/(login|signup)"
+```
+
+## Parser Output
+
+Parsers emit URLs in a standardized format:
+
+```json
+{
+  "url": "https://example.com",
+  "title": "Example Site",
+  "tags": ["imported", "blog"],
+  "timestamp": "2024-01-01T12:00:00Z",
+  "parser": "parse_html_urls"
+}
+```
+
+## Use Cases
+
+### Import Browser Bookmarks
+
+```bash
+# Export bookmarks from browser (usually Bookmarks > Export)
+# Then import:
+archivebox add < bookmarks.html
+```
+
+The `parse_html_urls` or `parse_netscape_urls` plugin will:
+- Extract all bookmark URLs
+- Preserve folder structure as tags
+- Maintain titles and descriptions
+
+### Subscribe to RSS Feeds
+
+```bash
+# Add feed URL
+archivebox add https://blog.example.com/feed.xml
+
+# Schedule periodic imports
+*/30 * * * * archivebox add https://blog.example.com/feed.xml
+```
+
+The `parse_rss_urls` plugin will:
+- Parse feed entries
+- Extract article URLs
+- Update incrementally (only new entries)
+
+### Recursive Website Archiving
+
+```bash
+# Archive a site and all linked pages (1 level deep)
+archivebox add --depth=1 https://example.com
+
+# Archive entire site (careful with large sites!)
+archivebox add --depth=-1 https://small-site.com
+```
+
+The `parse_dom_outlinks` plugin will:
+- Extract all links from archived pages
+- Follow links recursively up to `MAX_DEPTH`
+- Skip external domains (unless configured)
+- Respect robots.txt (if enabled)
+
+### Import from Custom Tools
+
+```bash
+# Export URLs from custom tool as JSONL
+echo '{"url": "https://example.com", "tags": ["important"]}' > urls.jsonl
+echo '{"url": "https://another.com", "tags": ["read-later"]}' >> urls.jsonl
+
+# Import
+archivebox add < urls.jsonl
+```
+
+The `parse_jsonl_urls` plugin will:
+- Parse structured data
+- Preserve metadata (tags, timestamps)
+- Handle bulk imports efficiently
+
+## Parser Priority
+
+When multiple parsers could handle input:
+
+1. **Format detection**: ArchiveBox inspects content type and structure
+2. **Parser selection**: Most specific parser is chosen
+3. **Fallback**: If parser fails, tries next compatible parser
+
+Example:
+```
+bookmarks.html
+  ↓
+  Detected as HTML
+  ↓
+  Check for Netscape format → parse_netscape_urls
+  If not Netscape → parse_html_urls
+```
+
+## Advanced Configuration
+
+### Parser-Specific Settings
+
+Some parsers have additional configuration:
+
+```bash
+# RSS feed settings
+export RSS_UPDATE_INTERVAL=1800  # Check every 30 minutes
+
+# DOM outlinks settings
+export FOLLOW_ONLY_SAME_DOMAIN=True  # Don't leave the site
+export SKIP_URL_PATTERNS="/logout,/admin"  # Skip these paths
+```
+
+### Custom URL Processing
+
+Chain parsers with custom processing:
+
+```bash
+# Parse URLs, filter, then add
+archivebox add < urls.txt | grep -v 'facebook.com' | archivebox add
+```
+
+## Parser Output for Debugging
+
+Parsers log their activity:
+
+```bash
+# Enable verbose logging
+export LOG_LEVEL=DEBUG
+
+# Watch parser output
+archivebox add < urls.txt
+```
+
+Output includes:
+- Number of URLs extracted
+- Parser used
+- Skipped URLs (and why)
+- Errors encountered
+
+## Common Issues
+
+### No URLs Extracted
+
+**Problem**: Parser runs but finds no URLs
+
+**Solutions**:
+1. Verify input format matches parser expectations
+2. Check if parser is enabled: `{PARSER}_ENABLED=True`
+3. Inspect input file manually
+4. Try different parser explicitly
+
+### Wrong Parser Used
+
+**Problem**: Wrong parser processes input
+
+**Solutions**:
+1. Rename file with explicit extension (`.xml` for RSS, `.jsonl` for JSONL)
+2. Disable conflicting parsers
+3. Specify parser explicitly (if supported)
+
+### Recursive Crawl Too Deep
+
+**Problem**: `parse_dom_outlinks` creates too many snapshots
+
+**Solutions**:
+1. Lower `MAX_DEPTH`: `export MAX_DEPTH=1`
+2. Use URL filters: `URL_ALLOWLIST`, `URL_DENYLIST`
+3. Enable `FOLLOW_ONLY_SAME_DOMAIN=True`
+
+### Duplicate URLs
+
+**Problem**: Same URL added multiple times
+
+**Solutions**:
+- ArchiveBox automatically deduplicates URLs
+- Multiple entries will reference the same snapshot
+- Use tags to differentiate sources
+
+## Testing Parsers
+
+Test parser output without archiving:
+
+```bash
+# Dry run - see what would be added
+archivebox add --dry-run < urls.txt
+
+# Parse and show URLs
+archivebox list --csv < urls.txt
+```
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card
+    title="Extractor Plugins"
+    icon="download"
+    href="/plugins/extractors"
+  >
+    Archive content after URLs are parsed
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/config/overview"
+  >
+    Configure parser behavior and URL filtering
+  </Card>
+</CardGroup>

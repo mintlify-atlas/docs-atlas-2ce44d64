@@ -1,0 +1,547 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for debugging ArchiveBox
+---
+
+This guide covers common issues and debugging techniques for ArchiveBox.
+
+## General Debugging Tips
+
+### Check Version and Dependencies
+
+First, verify your installation:
+
+```bash
+archivebox version
+
+# Shows:
+# - ArchiveBox version
+# - Python version  
+# - Django version
+# - SQLite version
+# - Installed dependencies (Chrome, wget, yt-dlp, etc.)
+# - Missing optional dependencies
+```
+
+### View Status
+
+```bash
+# Check overall status
+archivebox status
+
+# View configuration
+archivebox config
+
+# Check specific config value
+archivebox config --get CHROME_BINARY
+```
+
+### Enable Verbose Logging
+
+```bash
+# Run with verbose output
+archivebox --verbose add 'https://example.com'
+
+# Or set in config
+archivebox config --set LOG_LEVEL=DEBUG
+```
+
+### Check Logs
+
+```bash
+# View recent logs
+tail -f logs/errors.log
+
+# View all logs
+ls -lh logs/
+```
+
+## Common Issues
+
+### Installation Issues
+
+#### "Command not found: archivebox"
+
+**Cause**: ArchiveBox not in PATH
+
+**Solution**:
+```bash
+# If installed with pip
+python3 -m archivebox version
+
+# Add to PATH (bash)
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Or use full path
+~/.local/bin/archivebox version
+```
+
+#### "Permission denied" errors
+
+<Warning>
+ArchiveBox refuses to run as root for security reasons.
+</Warning>
+
+**Solution**:
+```bash
+# Run as non-root user
+sudo -u your-username archivebox version
+
+# Fix file permissions if needed
+sudo chown -R your-username:your-username ~/archivebox/data
+```
+
+#### Missing dependencies
+
+**Symptoms**: Some extractors fail or are disabled
+
+**Solution**:
+```bash
+# Check what's missing
+archivebox version
+
+# Install Chrome/Chromium
+# Ubuntu/Debian:
+sudo apt install chromium-browser
+
+# macOS:
+brew install chromium
+
+# Install other dependencies
+pip install yt-dlp playwright
+playwright install --with-deps chromium
+```
+
+### Database Issues
+
+#### "Database is locked"
+
+**Cause**: Another ArchiveBox process is running, or unclean shutdown
+
+**Solution**:
+```bash
+# Find and kill stray processes
+ps aux | grep archivebox
+kill <pid>
+
+# Or kill all Chrome processes
+pkill -f chrome
+
+# Check for lock files
+ls -la *.lock
+rm -f db.sqlite3.lock  # If safe to do so
+```
+
+#### "Corrupted database" or integrity errors
+
+**Check integrity**:
+```bash
+sqlite3 index.sqlite3 "PRAGMA integrity_check;"
+```
+
+**Solution**:
+```bash
+# Try to repair
+sqlite3 index.sqlite3 "PRAGMA integrity_check;"
+sqlite3 index.sqlite3 ".dump" | sqlite3 index_repaired.sqlite3
+
+# Restore from backup if needed
+cp index.sqlite3.backup index.sqlite3
+```
+
+#### Migration errors
+
+**Symptoms**: Errors during `archivebox init` about migrations
+
+**Check migration status**:
+```bash
+archivebox manage showmigrations
+
+# Or directly query database
+sqlite3 index.sqlite3 "SELECT app, name FROM django_migrations WHERE app='core' ORDER BY id;"
+```
+
+**Solution**:
+```bash
+# Run migrations manually
+archivebox manage migrate
+
+# If fake-apply is needed (DANGEROUS)
+archivebox manage migrate --fake <migration_name>
+
+# Check table schema
+sqlite3 index.sqlite3 "PRAGMA table_info(core_snapshot);"
+```
+
+See [Upgrading](/advanced/upgrading) for detailed migration troubleshooting.
+
+### Chrome/Browser Issues
+
+#### Chrome fails to launch
+
+**Check Chrome installation**:
+```bash
+archivebox version  # Shows Chrome path and version
+
+# Test Chrome directly
+chromium --version
+google-chrome --version
+```
+
+**Specify Chrome binary**:
+```bash
+archivebox config --set CHROME_BINARY=/usr/bin/chromium
+# or
+archivebox config --set CHROME_BINARY=/usr/bin/google-chrome
+```
+
+#### Chrome crashes or timeouts
+
+**Increase timeout**:
+```bash
+archivebox config --set TIMEOUT=120  # seconds
+```
+
+**Disable Chrome sandbox** (last resort, security risk):
+```bash
+archivebox config --set CHROME_SANDBOX=False
+```
+
+**Use different Chrome flags**:
+```bash
+archivebox config --set CHROME_EXTRA_ARGS='--disable-dev-shm-usage,--no-sandbox'
+```
+
+#### Screenshot/PDF generation fails
+
+**Check if Chrome is working**:
+```bash
+# Test Chrome manually
+chromium --headless --screenshot=test.png https://example.com
+
+# Check Chrome logs
+tail -f logs/errors.log | grep -i chrome
+```
+
+**Disable specific extractors**:
+```bash
+archivebox config --set SAVE_SCREENSHOT=False
+archivebox config --set SAVE_PDF=False
+```
+
+#### Zombie Chrome processes
+
+**Symptoms**: Many Chrome processes left running
+
+**Solution**:
+```bash
+# Kill all Chrome processes
+pkill -f chrome
+
+# Or more forcefully
+pkill -9 -f chrome
+
+# Use helper script if available
+./bin/kill_chrome.sh
+```
+
+### Archiving Issues
+
+#### "Failed to archive" errors
+
+**Check extractor status**:
+```bash
+# View snapshot details
+archivebox list --json | jq '.[] | select(.url == "https://example.com")'
+
+# Check specific snapshot folder
+ls -lh archive/<snapshot-id>/
+```
+
+**Retry failed snapshots**:
+```bash
+archivebox update --status=failed
+```
+
+#### Timeouts on slow sites
+
+```bash
+# Increase timeout
+archivebox config --set TIMEOUT=300  # 5 minutes
+
+# Or per-command
+archivebox add --timeout=300 'https://slow-site.com'
+```
+
+#### "Certificate verify failed" (SSL errors)
+
+**For development only** (not recommended for production):
+```bash
+archivebox config --set CHECK_SSL_VALIDITY=False
+```
+
+#### Content behind login not archiving
+
+**Check persona setup**:
+```bash
+# List personas
+archivebox persona list
+
+# Re-import cookies
+archivebox persona create --import=chrome personal
+
+# Verify cookies file exists
+ls -lh personas/personal/cookies.txt
+```
+
+See [Security](/advanced/security) for logged-in archiving caveats.
+
+### Performance Issues
+
+#### Slow archiving
+
+**Disable unnecessary extractors**:
+```bash
+archivebox config --set SAVE_MEDIA=False
+archivebox config --set SAVE_GIT=False
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+```
+
+**Reduce concurrent downloads**:
+```bash
+archivebox config --set MAX_CONCURRENT_DOWNLOADS=1
+```
+
+**Use faster storage**:
+- Move data directory to SSD
+- Use local storage instead of network mounts
+
+#### High memory usage
+
+**Reduce Chrome memory**:
+```bash
+archivebox config --set CHROME_EXTRA_ARGS='--disable-dev-shm-usage,--max-old-space-size=512'
+```
+
+**Disable memory-intensive extractors**:
+```bash
+archivebox config --set SAVE_SCREENSHOT=False
+archivebox config --set SAVE_PDF=False
+```
+
+#### High disk usage
+
+**Check usage**:
+```bash
+du -sh archive/
+du -sh archive/*/ | sort -h | tail -20  # Largest snapshots
+```
+
+**Disable large extractors**:
+```bash
+archivebox config --set SAVE_MEDIA=False  # Largest
+archivebox config --set SAVE_WARC=False   # Also large
+```
+
+**Clean up old archives**:
+```bash
+# Remove specific snapshots
+archivebox remove <url-or-timestamp>
+
+# Remove by filter
+archivebox remove --filter-type=domain --filter-pattern='spam.com'
+```
+
+### Docker Issues
+
+#### Permission errors in Docker
+
+**Set correct user**:
+```yaml
+# docker-compose.yml
+services:
+  archivebox:
+    user: "1000:1000"  # Your UID:GID
+```
+
+**Fix permissions**:
+```bash
+sudo chown -R 1000:1000 ./data
+```
+
+#### "Cannot connect to Docker daemon"
+
+```bash
+# Start Docker
+sudo systemctl start docker
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Log out and back in
+```
+
+#### Container exits immediately
+
+**Check logs**:
+```bash
+docker compose logs archivebox
+
+# Or
+docker logs archivebox
+```
+
+#### Volume mount issues
+
+**Verify mounts**:
+```bash
+# Check if volume is mounted
+docker compose run archivebox ls -la /data
+
+# Verify paths
+pwd  # Should be where docker-compose.yml is
+ls -la ./data
+```
+
+### Web UI Issues
+
+#### "CSRF token missing or incorrect"
+
+**Check ALLOWED_HOSTS**:
+```bash
+archivebox config --set ALLOWED_HOSTS='localhost,127.0.0.1,your-domain.com'
+```
+
+**Clear browser cookies**:
+- Delete cookies for the ArchiveBox domain
+- Try in incognito/private mode
+
+#### "Static files not loading"
+
+**Collect static files**:
+```bash
+archivebox manage collectstatic --noinput
+```
+
+#### Can't access Web UI
+
+**Check if server is running**:
+```bash
+ps aux | grep archivebox
+netstat -tlnp | grep 8000
+```
+
+**Test different bind address**:
+```bash
+# Try localhost only
+archivebox server 127.0.0.1:8000
+
+# Try all interfaces
+archivebox server 0.0.0.0:8000
+
+# Try different port
+archivebox server 127.0.0.1:9000
+```
+
+**Check firewall**:
+```bash
+# Ubuntu/Debian
+sudo ufw status
+sudo ufw allow 8000/tcp
+
+# Check if port is accessible
+curl http://localhost:8000
+```
+
+## Advanced Debugging
+
+### Python Shell
+
+Debug issues using the Python shell:
+
+```bash
+archivebox shell
+
+# In the shell:
+>>> from core.models import Snapshot, ArchiveResult
+>>> 
+>>> # Find failed snapshots
+>>> failed = Snapshot.objects.filter(status='failed')
+>>> for s in failed:
+...     print(f"{s.url}: {s.updated}")
+>>> 
+>>> # Check specific results
+>>> results = ArchiveResult.objects.filter(extractor='screenshot', status='failed')
+>>> for r in results:
+...     print(f"{r.snapshot.url}: {r.output}")
+```
+
+### Direct SQL Queries
+
+```bash
+sqlite3 index.sqlite3
+
+-- Find snapshots by status
+SELECT url, status, updated FROM core_snapshot WHERE status='failed' LIMIT 10;
+
+-- Find failed extractors
+SELECT extractor, COUNT(*) FROM core_archiveresult WHERE status='failed' GROUP BY extractor;
+
+-- Check database size
+SELECT page_count * page_size / 1024.0 / 1024.0 as size_mb FROM pragma_page_count(), pragma_page_size();
+```
+
+### Network Debugging
+
+```bash
+# Test URL accessibility
+curl -I 'https://example.com'
+
+# Test with same user agent as ArchiveBox
+curl -H 'User-Agent: ArchiveBox/0.9.0' 'https://example.com'
+
+# Check DNS resolution
+dig example.com
+nslookup example.com
+```
+
+### Filesystem Debugging
+
+```bash
+# Check permissions
+ls -la ~/archivebox/data/
+
+# Check disk space
+df -h ~/archivebox/data/
+
+# Check for symbolic link issues
+find ~/archivebox/data -type l -xtype l  # Broken symlinks
+
+# Check file counts
+find archive/ -name '*.html' | wc -l
+find archive/ -name '*.png' | wc -l
+```
+
+## Getting Help
+
+If you're still stuck:
+
+1. **Search existing issues**: [GitHub Issues](https://github.com/ArchiveBox/ArchiveBox/issues)
+2. **Check the Wiki**: [GitHub Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki)
+3. **Ask in discussions**: [GitHub Discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)
+4. **Community chat**: [Zulip](https://zulip.archivebox.io)
+
+**When asking for help, include**:
+- ArchiveBox version (`archivebox version`)
+- Operating system and version
+- Installation method (pip, Docker, apt, etc.)
+- Full error message and logs
+- Steps to reproduce
+- What you've already tried
+
+## Related Documentation
+
+- [Upgrading](/advanced/upgrading) - Migration and upgrade issues
+- [Security](/advanced/security) - Security-related debugging
+- [Configuration](/config/overview) - Configuration options
+- [Contributing](/community/contributing) - How to report bugs

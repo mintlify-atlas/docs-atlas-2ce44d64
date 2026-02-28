@@ -1,0 +1,244 @@
+---
+title: Output Formats
+description: What ArchiveBox saves for each URL
+---
+
+For each web page you archive, ArchiveBox creates a **Snapshot** and preserves its content in multiple redundant formats. All files are saved as ordinary files on disk that you can access without needing ArchiveBox running.
+
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="400px" alt="Snapshot detail page" />
+
+## What Gets Saved
+
+ArchiveBox uses all available methods out-of-the-box to save each page in multiple formats for maximum redundancy and longevity.
+
+### Standard Formats
+
+For **any website** (`http://` or `https://`):
+
+- 🌐 **Original HTML** - Raw HTML + CSS + JavaScript files
+- 📄 **SingleFile HTML** - Self-contained single HTML file with embedded resources
+- 📸 **Screenshot** - PNG screenshot at 1440x900 resolution
+- 📄 **PDF** - Printed PDF version of the page
+- 📦 **WARC** - Web ARChive format (industry standard)
+- 📝 **Title** - Parsed page title
+- 🎨 **Favicon** - Site favicon/icon
+- 📋 **Headers** - HTTP response headers
+- 📰 **Article text** - Extracted readable content (using Readability & Mercury)
+
+### Media Content
+
+For **social media** and **news sites**:
+
+- 📝 Post content (TXT format)
+- 💬 Comments
+- 🖼️ Images
+- 👤 Author information
+- 📅 Timestamps
+
+For **YouTube, SoundCloud**, and other media sites:
+
+- 🎬 **Video files** (MP4)
+- 🎵 **Audio files** (MP3)
+- 📝 **Subtitles** - All available subtitle tracks
+- 📊 **Metadata** - Video/audio metadata
+- 🖼️ **Thumbnails**
+
+### Source Code
+
+For **GitHub, GitLab, Bitbucket** links:
+
+- 📦 **Git clone** - Full repository clone
+- 📄 **README** - Repository README file
+- 🖼️ **Images** - Images from the repository
+
+## Archive Folder Structure
+
+Each snapshot is stored in its own directory:
+
+```
+data/archive/{Snapshot.id}/
+├── index.html              # Metadata page with links to all outputs
+├── index.json              # Machine-readable metadata
+├── singlefile.html         # Self-contained HTML snapshot
+├── output.pdf              # PDF version
+├── screenshot.png          # Page screenshot
+├── output.html             # DOM dump after JS rendering
+├── article.html            # Extracted article text
+├── article.json            # Article metadata
+├── archive.org.txt         # Link to Archive.org copy
+├── title.txt               # Page title
+├── favicon.ico             # Site favicon
+├── headers.json            # HTTP headers
+├── warc/
+│   └── TIMESTAMP.warc.gz   # WARC archive
+├── example.com/            # wget mirror of site
+│   └── page.html
+├── media/                  # Audio/video downloads
+│   ├── video.mp4
+│   ├── audio.mp3
+│   └── subtitles.srt
+└── git/                    # Git repository clone
+    └── ...
+```
+
+## Output Files Explained
+
+### Index Files
+
+**`index.html`** - Human-readable page showing:
+- Snapshot metadata (URL, timestamp, tags)
+- Preview of archived content
+- Links to all saved formats
+- Status of each extraction method
+
+**`index.json`** - Machine-readable metadata containing:
+- All snapshot details
+- Extraction results
+- Timestamps and status codes
+- File paths and sizes
+
+### Web Content
+
+**`singlefile.html`** - Created using [SingleFile](https://github.com/gildas-lormeau/SingleFile):
+- Self-contained HTML file
+- All CSS, images, fonts embedded as data URIs
+- Works offline without external dependencies
+- High fidelity preservation
+
+**`output.html`** - DOM dump using headless Chrome:
+- HTML after JavaScript execution
+- Captures dynamically loaded content
+- May include ads and tracking scripts
+
+**`example.com/`** - wget clone:
+- Mirrors the entire site structure
+- Preserves links between pages
+- Includes CSS, JS, images as separate files
+
+**`warc/`** - Web ARChive format:
+- Industry-standard archival format
+- Used by Archive.org, libraries, institutions
+- Contains raw HTTP requests/responses
+- Long-term preservation format
+
+### Visual Formats
+
+**`screenshot.png`** - Visual snapshot:
+- 1440x900 resolution
+- Captures page as rendered in Chrome
+- Useful for visual verification
+- Shows layout and design
+
+**`output.pdf`** - PDF version:
+- Printable format
+- Good for long-term readability
+- Works on any device
+- May lose some interactivity
+
+### Text Extraction
+
+**`article.html`** / **`article.json`** - Readable content:
+- Uses Mozilla's Readability and Mercury
+- Removes ads, navigation, footers
+- Extracts main article text
+- Preserves formatting
+- Great for RSS readers or reading mode
+
+### Metadata
+
+**`title.txt`** - Page title extracted from `<title>` tag
+
+**`favicon.ico`** - Site icon/favicon
+
+**`headers.json`** - HTTP response headers:
+- Content-Type
+- Server information
+- Cache headers
+- Security headers
+
+**`archive.org.txt`** - Archive.org permalink:
+- ArchiveBox submits URLs to Archive.org by default
+- Creates redundant backup
+- Can be disabled with `SAVE_ARCHIVE_DOT_ORG=False`
+
+### Media Files
+
+**`media/`** - Downloaded media using [yt-dlp](https://github.com/yt-dlp/yt-dlp):
+- Videos (MP4, WebM, etc.)
+- Audio (MP3, M4A, etc.)
+- Subtitles (SRT, VTT)
+- Thumbnails
+- Metadata JSON
+- Supports 1000+ sites
+
+### Source Code
+
+**`git/`** - Git repository clone:
+- Full commit history
+- All branches
+- Submodules
+- LFS files (if configured)
+
+## Configuration
+
+You can enable/disable specific output formats:
+
+```bash
+# Disable specific extractors
+archivebox config --set SAVE_PDF=False
+archivebox config --set SAVE_SCREENSHOT=False
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+
+# View all extractor settings
+archivebox config | grep SAVE_
+```
+
+Common settings:
+
+- `SAVE_TITLE` - Extract page title
+- `SAVE_FAVICON` - Download favicon
+- `SAVE_WGET` - Create wget mirror
+- `SAVE_WARC` - Create WARC file
+- `SAVE_SINGLEFILE` - Create SingleFile HTML
+- `SAVE_PDF` - Generate PDF
+- `SAVE_SCREENSHOT` - Capture screenshot
+- `SAVE_DOM` - Save DOM after JS execution
+- `SAVE_READABILITY` - Extract article text
+- `SAVE_MERCURY` - Extract article (alternative method)
+- `SAVE_GIT` - Clone git repositories
+- `SAVE_MEDIA` - Download media with yt-dlp
+- `SAVE_ARCHIVE_DOT_ORG` - Submit to Archive.org
+
+## Why Multiple Formats?
+
+ArchiveBox saves content in multiple formats because:
+
+1. **Redundancy** - If one format fails or becomes obsolete, others remain
+2. **Fidelity** - Different formats capture different aspects (visual, interactive, text)
+3. **Longevity** - Standard formats (PDF, WARC, HTML) will be readable for decades
+4. **Accessibility** - Different formats suit different use cases (reading, sharing, analysis)
+5. **No proprietary lock-in** - All formats are open standards or plain files
+
+## File Access
+
+All archived content is stored as regular files on disk:
+
+```bash
+# Browse directly
+ls ./data/archive/
+open ./data/archive/1234567890/index.html
+
+# Or query the database
+sqlite3 ./data/index.sqlite3 "SELECT url, timestamp FROM core_snapshot LIMIT 10;"
+
+# Or use the Python API
+archivebox shell
+>>> from core.models import Snapshot
+>>> Snapshot.objects.first().url
+```
+
+## See Also
+
+- [Archiving Process](/features/archiving) - How extraction works
+- [Input Formats](/features/input-formats) - Ways to add URLs
+- [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) - All settings
