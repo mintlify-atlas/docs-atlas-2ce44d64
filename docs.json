@@ -102,11 +102,15 @@
             "group": "Commands",
             "pages": [
               "cli/overview",
+              "cli/help",
+              "cli/version",
               "cli/init",
+              "cli/install",
               "cli/add",
               "cli/remove",
               "cli/update",
-              "cli/list",
+              "cli/search",
+              "cli/run",
               "cli/status",
               "cli/config",
               "cli/schedule",
@@ -123,7 +127,9 @@
               "cli/archiveresult",
               "cli/tag",
               "cli/binary",
-              "cli/persona"
+              "cli/machine",
+              "cli/persona",
+              "cli/process"
             ]
           }
         ]

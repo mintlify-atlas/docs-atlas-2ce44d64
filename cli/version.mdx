@@ -1,0 +1,292 @@
+---
+title: archivebox version
+description: Display version information and dependency status
+icon: code-branch
+---
+
+## Overview
+
+The `version` command displays ArchiveBox version information, system metadata, and the status of all installed dependencies (binaries). This is essential for debugging and getting support.
+
+## Basic Usage
+
+```bash
+archivebox version
+```
+
+```bash docker
+docker compose run archivebox version
+```
+
+## What It Shows
+
+### Version Information
+- ArchiveBox version number
+- Git commit hash (if installed from source)
+- Build timestamp
+
+### System Information
+- Docker/QEMU status
+- System architecture (x86_64, arm64, etc.)
+- Operating system
+- Platform details
+- Python implementation and version
+
+### Permissions & Filesystem
+- User/group IDs (EUID, UID, PUID)
+- Filesystem ownership (FS_UID, FS_GID)
+- Filesystem permissions
+- Atomic write enforcement status
+- Remote filesystem detection
+
+### Runtime Configuration
+- Debug mode status
+- TTY detection
+- Sudo/root status
+- Machine and collection IDs
+- Search backend engine
+- LDAP authentication status
+
+### Binary Dependencies
+
+When run inside a data directory, shows all detected binaries:
+- Binary name
+- Version
+- Provider (pip, npm, brew, apt, env)
+- Installation path
+- Validation status (✓ valid or ✗ missing)
+
+### Code & Data Locations
+
+Shows paths to:
+- ArchiveBox installation directory
+- Configuration files
+- Data directory
+- Archive directory
+- Database location
+
+## Options
+
+### `--quiet`, `-q`
+
+Print only the version number, no other information.
+
+```bash
+archivebox version --quiet
+# Output: 0.9.0
+```
+
+Equivalent to:
+```bash
+archivebox --version
+```
+
+### `--binaries`, `-b`
+
+Show information for specific binaries only.
+
+```bash
+# Check Chrome and wget only
+archivebox version --binaries=chrome,wget
+
+# Check single binary
+archivebox version --binaries=yt-dlp
+```
+
+## Output Examples
+
+### Full Version Output
+
+```
+ArchiveBox v0.9.0 COMMIT_HASH=a1b2c3d BUILD_TIME=2024-02-28T10:00:00Z
+IN_DOCKER=False IN_QEMU=False ARCH=x86_64 OS=Linux PLATFORM=Linux-6.1.0 PYTHON=Cpython
+EUID=1000:1000 UID=1000:1000 PUID=1000:1000 FS_UID=1000:1000 FS_PERMS=644 FS_ATOMIC=True FS_REMOTE=False
+DEBUG=False IS_TTY=True SUDO=False ID=01HQAA:01HQBB SEARCH_BACKEND=ripgrep LDAP=False
+
+[i] Binary Dependencies:
+
+ √  chrome             120.0.6099.109  env      /usr/bin/google-chrome
+ √  wget               1.21.3          apt      /usr/bin/wget
+ √  curl               8.5.0           apt      /usr/bin/curl
+ √  yt-dlp             2024.01.01      pip      ~/.local/bin/yt-dlp
+ √  git                2.43.0          apt      /usr/bin/git
+ √  node               20.11.0         env      /usr/bin/node
+ √  ripgrep            14.1.0          cargo    /usr/bin/rg
+ X  single-file        not installed
+
+[i] Code locations:
+    PACKAGE_DIR:        /usr/local/lib/python3.11/site-packages/archivebox
+    CONFIG_FILE:        ./ArchiveBox.conf
+
+[i] Data locations:
+    DATA_DIR:           ./
+    ARCHIVE_DIR:        ./archive
+    DATABASE:           ./index.sqlite3
+    LOGS_DIR:           ./logs
+```
+
+### Quick Version
+
+```bash
+archivebox version --quiet
+```
+
+Output:
+```
+0.9.0
+```
+
+### Specific Binaries
+
+```bash
+archivebox version --binaries=chrome,wget
+```
+
+Output:
+```
+ArchiveBox v0.9.0 ...
+...
+
+[i] Binary Dependencies:
+
+ √  chrome             120.0.6099.109  env      /usr/bin/google-chrome
+ √  wget               1.21.3          apt      /usr/bin/wget
+```
+
+### Missing Dependencies
+
+If binaries are missing:
+
+```
+[i] Binary Dependencies:
+
+ √  chrome             120.0.6099.109  env      /usr/bin/google-chrome
+ X  wget               not installed
+ X  yt-dlp             not installed
+
+Error: Failed to detect the following binaries:
+      wget, yt-dlp
+
+Hint: To install missing binaries automatically, run:
+      archivebox install
+```
+
+## Use Cases
+
+### Get Version for Bug Reports
+
+When reporting issues, always include full version output:
+
+```bash
+archivebox version > version_info.txt
+```
+
+Include `version_info.txt` in your bug report.
+
+### Check Installed Dependencies
+
+Verify all required binaries are installed:
+
+```bash
+archivebox version
+```
+
+Look for ✗ marks indicating missing dependencies.
+
+### Verify Chrome Installation
+
+```bash
+archivebox version --binaries=chrome
+```
+
+### Check Python Environment
+
+Verify you're using the correct Python version and virtual environment:
+
+```bash
+archivebox version | grep PYTHON
+# Output: PYTHON=Cpython (venv)
+```
+
+### Debugging Permission Issues
+
+Check user/group IDs and filesystem permissions:
+
+```bash
+archivebox version | grep -E "(UID|PERMS)"
+# Output: EUID=1000:1000 UID=1000:1000 PUID=1000:1000 FS_UID=1000:1000 FS_PERMS=644
+```
+
+### Scripting Version Checks
+
+```bash
+#!/bin/bash
+VERSION=$(archivebox version --quiet)
+if [[ "$VERSION" < "0.9.0" ]]; then
+    echo "Please upgrade ArchiveBox"
+    exit 1
+fi
+```
+
+## Exit Codes
+
+- **0** - Success, all dependencies valid
+- **1** - One or more dependencies missing/invalid
+
+## Troubleshooting
+
+### No Binary Information Shown
+
+**Cause:** Not running inside a data directory.
+
+**Solution:** 
+```bash
+cd ~/archivebox/data
+archivebox version
+```
+
+Or run `archivebox init` first:
+```bash
+archivebox init
+archivebox version
+```
+
+### Missing Binaries
+
+**Cause:** Dependencies not installed.
+
+**Solution:**
+```bash
+archivebox install
+```
+
+### Permission Warnings
+
+**Cause:** Mismatched user/group IDs.
+
+**Solution:** Check the UID/GID output and ensure your data directory has correct permissions:
+```bash
+sudo chown -R 1000:1000 ~/archivebox/data
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="help" icon="circle-question" href="/cli/help">
+    Show available commands
+  </Card>
+  <Card title="install" icon="download" href="/cli/install">
+    Install missing dependencies
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check archive health
+  </Card>
+  <Card title="binary" icon="microchip" href="/cli/binary">
+    Manage binary records
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [Installation](/install) - Installing ArchiveBox and dependencies
+- [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting) - Common issues and solutions

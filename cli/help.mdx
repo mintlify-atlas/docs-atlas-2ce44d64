@@ -1,0 +1,183 @@
+---
+title: archivebox help
+description: Display available commands and usage information
+icon: circle-question
+---
+
+## Overview
+
+The `help` command displays the main help message showing all available ArchiveBox commands, usage patterns, and documentation links.
+
+## Basic Usage
+
+```bash
+archivebox help
+```
+
+```bash docker
+docker compose run archivebox help
+```
+
+## What It Shows
+
+The help command displays:
+
+1. **Usage patterns** - How to run ArchiveBox commands
+2. **Available commands** - Complete list organized by category:
+   - Meta commands (help, version)
+   - Setup commands (init, install, config)
+   - Archive commands (add, update, remove, etc.)
+3. **Documentation links** - URLs to wiki and configuration docs
+4. **Current data directory** - If running inside an initialized collection
+5. **Quick start hints** - Common maintenance tasks and examples
+
+## Command Categories
+
+Commands are organized into groups:
+
+### Meta Commands
+- `help` - Show this help message
+- `version` - Show version and system info
+
+### Setup Commands
+- `init` - Initialize a new collection
+- `install` - Install dependencies
+- `config` - Manage configuration
+
+### Archive Commands
+- `add` - Add new URLs
+- `update` - Update existing snapshots
+- `remove` - Remove snapshots
+- `list` - List snapshots
+- `status` - Show archive health
+- And more...
+
+## Output
+
+### When Inside a Data Directory
+
+If you run `help` inside an initialized ArchiveBox collection:
+
+```
+Usage:
+    archivebox [command] [...args] [--help] [--version]
+
+Commands:
+    help                 Print the ArchiveBox help message and usage
+    version              Print the ArchiveBox version, debug metadata, and installed dependency versions
+    init                 Initialize a new ArchiveBox collection
+    ...
+
+Documentation:
+    https://github.com/ArchiveBox/ArchiveBox/wiki
+    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage
+    https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
+
+┌─ ✓ A collection DATA DIR is currently active ─────────────────┐
+│                                                                │
+│ DATA DIR: ~/archivebox/data                                   │
+│                                                                │
+│ Hint: Common maintenance tasks:                               │
+│     archivebox init      # make sure database is up-to-date  │
+│     archivebox install   # make sure plugins are up-to-date  │
+│     archivebox status    # get a health checkup report       │
+│     archivebox update    # retry failed archiving tasks      │
+│                                                                │
+│ Hint: More example usage:                                     │
+│     archivebox add --depth=1 "https://example.com/some/page" │
+│     archivebox list --sort=timestamp --csv=timestamp,url     │
+│     archivebox schedule --every=day --depth=1 "...rss"       │
+│     archivebox server 0.0.0.0:8000  # Start the Web UI       │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### When Outside a Data Directory
+
+If you run `help` outside any collection:
+
+```
+Usage:
+    archivebox [command] [...args] [--help] [--version]
+
+...
+
+┌─ ✗ No collection is currently active ─────────────────────────┐
+│                                                                │
+│ To load an existing collection:                               │
+│     1. cd ~/archivebox/data     # go into existing DATA DIR  │
+│     2. archivebox init          # migrate to latest version  │
+│     3. archivebox install       # auto-update all plugins    │
+│     4. archivebox help          # ...get help with next steps│
+│                                                                │
+│ To start a new collection:                                    │
+│     1. mkdir ~/archivebox/data  # create a new, empty dir    │
+│     2. cd ~/archivebox/data     # cd into the new directory  │
+│     3. archivebox init          # initialize ArchiveBox      │
+│     4. archivebox install       # auto-install all plugins   │
+│     5. archivebox help          # ... get help with next steps│
+└────────────────────────────────────────────────────────────────┘
+```
+
+## Docker Usage
+
+When running inside Docker, the help shows Docker-specific usage:
+
+```
+Docker Usage:
+    # using Docker Compose:
+    docker compose run archivebox [command] [...args] [--help] [--version]
+
+    # using Docker:
+    docker run -v $PWD:/data -p 8000:8000 -it archivebox/archivebox [command] [...args]
+```
+
+## Examples
+
+### Show Help
+
+```bash
+archivebox help
+```
+
+### Docker Help
+
+```bash
+docker compose run archivebox help
+```
+
+## Getting Help for Specific Commands
+
+Each command has its own help:
+
+```bash
+# General help
+archivebox help
+
+# Help for specific command
+archivebox add --help
+archivebox config --help
+archivebox server --help
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="version" icon="code-branch" href="/cli/version">
+    Show version and system info
+  </Card>
+  <Card title="init" icon="play" href="/cli/init">
+    Initialize a new collection
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check archive health
+  </Card>
+  <Card title="config" icon="gear" href="/cli/config">
+    Configure ArchiveBox
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [CLI Overview](/cli/overview) - Overview of all CLI commands
+- [Getting Started](/quickstart) - Quick start guide
+- [Usage Guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage) - Detailed usage documentation

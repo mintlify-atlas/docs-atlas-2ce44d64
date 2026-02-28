@@ -1,0 +1,364 @@
+---
+title: archivebox install
+description: Detect and install ArchiveBox dependencies automatically
+icon: download
+---
+
+## Overview
+
+The `install` command detects and installs ArchiveBox dependencies by running a dependency-check crawl. It automatically finds missing binaries and installs them using available package managers (pip, npm, brew, apt, etc.).
+
+## Basic Usage
+
+```bash
+archivebox install
+```
+
+```bash docker
+docker compose run archivebox install
+```
+
+## What It Does
+
+1. **Initializes data directory** - Runs `init` if not already initialized
+2. **Creates detection crawl** - Generates a special crawl to trigger dependency checks
+3. **Scans for binaries** - Detects installed executables in system PATH
+4. **Installs missing dependencies** - Uses package managers to install missing binaries
+5. **Verifies installation** - Checks versions and paths of installed binaries
+6. **Displays results** - Shows full version info with all detected dependencies
+
+## Dependencies Installed
+
+The install command can detect and install:
+
+### Core Dependencies
+- **chrome/chromium** - For screenshots, PDF, DOM extraction
+- **wget** - HTTP downloader
+- **curl** - HTTP client
+- **git** - Version control system
+
+### Media Dependencies
+- **yt-dlp** - Video/audio downloader
+- **ffmpeg** - Media processing
+
+### JavaScript Dependencies
+- **node** - JavaScript runtime
+- **single-file** - SingleFile archiver (npm package)
+- **readability-extractor** - Article extraction
+- **postlight-parser** - Mercury parser
+
+### Search Dependencies
+- **ripgrep** - Fast text search
+- **sonic** - Search backend
+
+## Options
+
+### Specify Binaries
+
+Install only specific binaries:
+
+```bash
+archivebox install <binary1> <binary2> ...
+```
+
+**Examples:**
+
+```bash
+# Install only wget and curl
+archivebox install wget curl
+
+# Install only Chrome
+archivebox install chrome
+
+# Install media dependencies
+archivebox install yt-dlp ffmpeg
+```
+
+### `--binproviders`, `-p`
+
+Restrict which package managers to use:
+
+```bash
+archivebox install --binproviders=<providers>
+```
+
+**Available providers:**
+- `pip` - Python packages
+- `npm` - Node.js packages
+- `brew` - Homebrew (macOS/Linux)
+- `apt` - APT package manager (Debian/Ubuntu)
+- `env` - System PATH (existing installations)
+- `*` - All providers (default)
+
+**Examples:**
+
+```bash
+# Install using only pip
+archivebox install --binproviders=pip yt-dlp
+
+# Install using only brew or apt
+archivebox install --binproviders=brew,apt
+
+# Install using all available providers
+archivebox install --binproviders=*
+```
+
+### `--dry-run`, `-d`
+
+Show what would be installed without actually installing:
+
+```bash
+archivebox install --dry-run
+```
+
+## Examples
+
+### Install All Dependencies
+
+```bash
+archivebox install
+```
+
+This scans your system, detects what's missing, and installs everything automatically.
+
+### Install Specific Dependencies
+
+```bash
+# Install Chrome only
+archivebox install chrome
+
+# Install wget and curl
+archivebox install wget curl
+
+# Install yt-dlp
+archivebox install yt-dlp
+```
+
+### Install Using Specific Package Manager
+
+```bash
+# Install yt-dlp using only pip (not brew/apt)
+archivebox install --binproviders=pip yt-dlp
+
+# Install everything using brew only
+archivebox install --binproviders=brew
+
+# Install using apt only (Debian/Ubuntu)
+archivebox install --binproviders=apt
+```
+
+### Preview Installation
+
+```bash
+# See what would be installed
+archivebox install --dry-run
+```
+
+### Docker Installation
+
+```bash
+docker compose run archivebox install
+```
+
+### Combined Init and Install
+
+You can combine initialization and installation:
+
+```bash
+# Initialize and install in one step
+archivebox init --install
+
+# Or separately
+archivebox init
+archivebox install
+```
+
+## Output
+
+Successful installation shows:
+
+```
+[+] Installing all ArchiveBox dependencies...
+
+[+] Created dependency detection crawl: 01HQAA...
+[+] Crawl status: queued, retry_at: 2024-02-28T10:00:00Z
+[+] Crawls in queue: 1
+    - Crawl 01HQAA...: status=queued, retry_at=2024-02-28T10:00:00Z
+[+] Running crawl to detect binaries via on_Crawl hooks...
+
+Processing crawl 01HQAA...
+Detecting binaries...
+✓ chrome found: /usr/bin/google-chrome (120.0.6099.109)
+✓ wget found: /usr/bin/wget (1.21.3)
+✗ yt-dlp not found, installing via pip...
+  pip install yt-dlp
+✓ yt-dlp installed: ~/.local/bin/yt-dlp (2024.01.01)
+
+[+] Don't forget to create a new admin user for the Web UI...
+    archivebox manage createsuperuser
+
+ArchiveBox v0.9.0 ...
+
+[i] Binary Dependencies:
+
+ √  chrome             120.0.6099.109  env      /usr/bin/google-chrome
+ √  wget               1.21.3          apt      /usr/bin/wget
+ √  curl               8.5.0           apt      /usr/bin/curl
+ √  yt-dlp             2024.01.01      pip      ~/.local/bin/yt-dlp
+ √  git                2.43.0          apt      /usr/bin/git
+ ...
+```
+
+## Automatic Detection
+
+The install command uses a smart detection system:
+
+1. **Scans system PATH** - Looks for executables in standard locations
+2. **Checks common paths** - Searches `/usr/bin`, `/usr/local/bin`, `~/.local/bin`
+3. **Tests versions** - Runs `--version` flags to verify binaries work
+4. **Creates database records** - Stores Binary records for plugin use
+5. **Triggers plugin hooks** - Allows plugins to install their own dependencies
+
+This happens automatically via the crawl system - the install command creates a special "installation crawl" that triggers all the detection hooks.
+
+## Provider Priority
+
+When multiple providers can install a binary, ArchiveBox uses this priority:
+
+1. **env** - Prefer existing system installations
+2. **brew** - Homebrew (macOS/Linux)
+3. **apt** - APT packages (Debian/Ubuntu)
+4. **pip** - Python packages
+5. **npm** - Node.js packages
+
+You can override this with `--binproviders`.
+
+## Use Cases
+
+### Fresh Installation
+
+After installing ArchiveBox for the first time:
+
+```bash
+archivebox init
+archivebox install
+```
+
+### After System Upgrade
+
+After upgrading your OS or package manager:
+
+```bash
+archivebox install
+```
+
+This re-detects binaries and updates version information.
+
+### Fix Missing Dependencies
+
+If `archivebox version` shows missing binaries:
+
+```bash
+archivebox install
+```
+
+### Custom Chrome Installation
+
+If you have Chrome in a non-standard location:
+
+```bash
+# Install will detect it if it's in PATH
+export PATH="/opt/chrome:$PATH"
+archivebox install chrome
+```
+
+### Install Only Python Dependencies
+
+```bash
+archivebox install --binproviders=pip yt-dlp readability-extractor
+```
+
+### Install Only System Dependencies
+
+```bash
+# On Ubuntu/Debian
+archivebox install --binproviders=apt wget curl git
+
+# On macOS
+archivebox install --binproviders=brew wget curl git
+```
+
+## Troubleshooting
+
+### Error: "Running as root"
+
+**Cause:** ArchiveBox refuses to run as root for security.
+
+**Solution:** Run as a regular user:
+```bash
+sudo -u archivebox archivebox install
+```
+
+### Dependencies Not Found After Install
+
+**Cause:** Binaries installed outside PATH.
+
+**Solution:** Add install location to PATH:
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+archivebox install
+```
+
+### Permission Denied When Installing
+
+**Cause:** No permission to install system packages.
+
+**Solution:** Use user-level providers:
+```bash
+archivebox install --binproviders=pip,npm
+```
+
+Or install system packages separately:
+```bash
+sudo apt install wget curl git
+archivebox install  # Will detect system-installed binaries
+```
+
+### Chrome/Chromium Not Detected
+
+**Solution:** Install Chrome manually:
+
+```bash
+# Ubuntu/Debian
+sudo apt install chromium-browser
+# OR download Chrome from google.com/chrome
+
+# macOS
+brew install --cask google-chrome
+
+# Then run install to detect it
+archivebox install
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="init" icon="play" href="/cli/init">
+    Initialize data directory
+  </Card>
+  <Card title="version" icon="code-branch" href="/cli/version">
+    Check installed dependencies
+  </Card>
+  <Card title="binary" icon="microchip" href="/cli/binary">
+    Manage binary records
+  </Card>
+  <Card title="config" icon="gear" href="/cli/config">
+    Configure binary paths
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [Installation Guide](/install) - Installing ArchiveBox
+- [Dependencies](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies) - List of all dependencies
+- [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting) - Common issues

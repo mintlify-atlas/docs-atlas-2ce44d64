@@ -1,0 +1,269 @@
+---
+title: 'archivebox machine'
+description: 'Manage Machine records - system-managed host tracking'
+icon: 'server'
+---
+
+## Overview
+
+The `archivebox machine` command manages Machine records in ArchiveBox. Machine records track the host machines where ArchiveBox runs. They are created automatically by the system and are primarily for debugging and auditing.
+
+## Model Purpose
+
+**Machine** - A host machine where ArchiveBox runs. Each Machine:
+- Has a unique ID
+- Tracks hostname
+- Records OS platform (Linux, Darwin, Windows)
+- Records when it was first detected
+- Is created automatically on first run
+- Is mostly read-only (system-managed)
+
+<Info>
+  Machine records are automatically created when ArchiveBox runs on a new host. You rarely need to manage them manually.
+</Info>
+
+## Subcommands
+
+### list
+
+List Machines with optional filters.
+
+```bash
+archivebox machine list [options]
+```
+
+**Options:**
+- `--hostname__icontains` - Filter by hostname containing text
+- `--os-platform` - Filter by OS platform (Linux, Darwin, Windows)
+- `--limit`, `-n` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all machines
+archivebox machine list
+
+# List machines by hostname
+archivebox machine list --hostname__icontains=server
+
+# List Linux machines
+archivebox machine list --os-platform=Linux
+
+# List recent 10 machines
+archivebox machine list --limit=10
+```
+
+## Output Formats
+
+### TTY (Human-Readable)
+
+When run in a terminal:
+
+```
+my-server.local               Linux      01HQAA1234567890ABCDEFGH
+my-laptop.local               Darwin     01HQBB9876543210ZYXWVUTS
+windows-box                   Windows    01HQCC5555555555AAAABBBB
+
+Listed 3 machines
+```
+
+### JSONL (Programmatic)
+
+When piped or redirected:
+
+```json
+{"type":"machine","id":"01HQAA...","hostname":"my-server.local","os_platform":"Linux","created_at":"2024-02-28T10:00:00Z"}
+{"type":"machine","id":"01HQBB...","hostname":"my-laptop.local","os_platform":"Darwin","created_at":"2024-02-27T15:30:00Z"}
+```
+
+## Common Use Cases
+
+### List All Machines
+
+See which hosts have run ArchiveBox:
+
+```bash
+archivebox machine list
+```
+
+Output:
+```
+production-server             Linux      01HQAA...
+dev-laptop                    Darwin     01HQBB...
+backup-server                 Linux      01HQCC...
+```
+
+### Find Specific Machine
+
+Search by hostname:
+
+```bash
+# Find production machines
+archivebox machine list --hostname__icontains=prod
+
+# Find development machines
+archivebox machine list --hostname__icontains=dev
+```
+
+### Check OS Distribution
+
+See which operating systems are running ArchiveBox:
+
+```bash
+# List all Linux machines
+archivebox machine list --os-platform=Linux
+
+# List all macOS machines
+archivebox machine list --os-platform=Darwin
+
+# List all Windows machines
+archivebox machine list --os-platform=Windows
+```
+
+### Export Machine Data
+
+Export machine information for analysis:
+
+```bash
+# Export to JSON file
+archivebox machine list > machines.jsonl
+
+# Process with jq
+archivebox machine list | jq -r '.hostname'
+
+# Count machines by OS
+archivebox machine list | jq -r '.os_platform' | sort | uniq -c
+```
+
+### Audit Machine Access
+
+Track which machines have accessed your archive:
+
+```bash
+# List all machines with timestamps
+archivebox machine list | jq '{hostname, os_platform, created_at}'
+
+# Find recently added machines
+archivebox machine list --limit=5
+```
+
+## Automatic Machine Creation
+
+Machine records are created automatically:
+
+1. **On first run** - When ArchiveBox runs on a new host
+2. **Uses system info** - Hostname from `platform.node()`
+3. **Detects OS** - Platform from `platform.system()`
+4. **Creates unique ID** - ULID identifier
+5. **Stores in database** - Machine model in SQLite
+
+You never need to manually create Machine records.
+
+## Machine ID Usage
+
+Machine IDs are used to:
+- Track which machine ran specific processes
+- Associate binaries with their host machines
+- Audit where archive operations occurred
+- Debug multi-host deployments
+
+## Read-Only Nature
+
+Machine records are mostly read-only:
+- ✓ List and filter machines
+- ✗ Cannot create manually (auto-created)
+- ✗ Cannot update (system-managed)
+- ✗ Cannot delete (audit trail)
+
+<Warning>
+  Machine records are intentionally immutable to maintain an accurate audit trail.
+</Warning>
+
+## JSONL Format
+
+Machines are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "type": "machine",
+  "id": "01HQAA1234567890ABCDEFGH",
+  "hostname": "my-server.local",
+  "os_platform": "Linux",
+  "created_at": "2024-02-28T10:00:00Z",
+  "updated_at": "2024-02-28T10:00:00Z"
+}
+```
+
+## Related Models
+
+Machine records relate to:
+
+- **Binary** - Binaries are associated with machines
+- **Process** - Processes track which machine they ran on
+- **Snapshot** - Snapshots may track which machine archived them
+
+## Troubleshooting
+
+### No Machines Listed
+
+**Cause:** Database not initialized or no work has been done.
+
+**Solution:**
+```bash
+# Initialize database
+archivebox init
+
+# Run any command to create machine record
+archivebox version
+
+# Check again
+archivebox machine list
+```
+
+### Duplicate Machines
+
+**Cause:** Hostname changed or multiple ArchiveBox instances.
+
+**Behavior:** This is expected - each unique hostname gets its own record.
+
+### Wrong Hostname
+
+**Cause:** System hostname not configured correctly.
+
+**Solution:** Fix your system hostname:
+```bash
+# Linux
+sudo hostnamectl set-hostname my-server
+
+# macOS
+sudo scutil --set HostName my-server
+
+# Then restart ArchiveBox
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="process" icon="gears" href="/cli/process">
+    Manage process execution records
+  </Card>
+  <Card title="binary" icon="microchip" href="/cli/binary">
+    Manage binary detection records
+  </Card>
+  <Card title="snapshot" icon="camera" href="/cli/snapshot">
+    Manage archived snapshots
+  </Card>
+  <Card title="version" icon="code-branch" href="/cli/version">
+    View system and machine info
+  </Card>
+</CardGroup>
+
+## Architecture Notes
+
+Machine records are part of ArchiveBox's audit and tracking system:
+
+- Stored in `machine_machine` table
+- Created via `Machine.current()` method
+- ULID primary keys for global uniqueness
+- Immutable after creation
+- Used for multi-host deployments and debugging

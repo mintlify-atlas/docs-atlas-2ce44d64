@@ -1,0 +1,366 @@
+---
+title: 'archivebox process'
+description: 'Manage Process records - binary execution tracking'
+icon: 'gears'
+---
+
+## Overview
+
+The `archivebox process` command manages Process records in ArchiveBox. Process records track executions of binaries during extraction. They are created automatically by the system and are primarily for debugging extraction issues.
+
+## Model Purpose
+
+**Process** - A record of a binary execution. Each Process:
+- Has a unique ID
+- Tracks which binary was executed
+- Records which machine it ran on
+- Stores start and end timestamps
+- Captures return code (exit status)
+- Records stdout/stderr output
+- Links to the snapshot or archive result that triggered it
+
+<Info>
+  Process records are automatically created when ArchiveBox runs extractors. You rarely need to manage them manually.
+</Info>
+
+## Subcommands
+
+### list
+
+List Processes with optional filters.
+
+```bash
+archivebox process list [options]
+```
+
+**Options:**
+- `--binary-name`, `-b` - Filter by binary name (chrome, wget, etc.)
+- `--machine-id`, `-m` - Filter by machine ID
+- `--limit`, `-n` - Limit number of results
+
+**Examples:**
+
+```bash
+# List all processes
+archivebox process list
+
+# List Chrome processes
+archivebox process list --binary-name=chrome
+
+# List wget processes
+archivebox process list --binary-name=wget
+
+# List processes on specific machine
+archivebox process list --machine-id=01HQAA...
+
+# List recent 10 processes
+archivebox process list --limit=10
+```
+
+## Output Formats
+
+### TTY (Human-Readable)
+
+When run in a terminal:
+
+```
+exit=0   chrome             01HQAA1234567890ABCDEFGH
+exit=0   wget               01HQBB9876543210ZYXWVUTS
+exit=1   yt-dlp             01HQCC5555555555AAAABBBB
+exit=0   curl               01HQDD7777777777CCCCDDDD
+
+Listed 4 processes
+```
+
+Color coding:
+- **Green** - Exit code 0 (success)
+- **Red** - Non-zero exit code (failure)
+- **Yellow** - Unknown/null exit code (still running)
+
+### JSONL (Programmatic)
+
+When piped or redirected:
+
+```json
+{"type":"process","id":"01HQAA...","binary_id":"01HQZZ...","machine_id":"01HQYY...","start_ts":"2024-02-28T10:00:00Z","end_ts":"2024-02-28T10:00:05Z","returncode":0}
+{"type":"process","id":"01HQBB...","binary_id":"01HQXX...","machine_id":"01HQYY...","start_ts":"2024-02-28T10:01:00Z","end_ts":"2024-02-28T10:01:02Z","returncode":0}
+```
+
+## Common Use Cases
+
+### List All Process Executions
+
+See what binaries have been run:
+
+```bash
+archivebox process list
+```
+
+Output:
+```
+exit=0   chrome             01HQAA...
+exit=0   wget               01HQBB...
+exit=1   yt-dlp             01HQCC...
+exit=0   single-file        01HQDD...
+```
+
+### Debug Failed Extractions
+
+Find processes that failed:
+
+```bash
+# Export processes to analyze failures
+archivebox process list | jq 'select(.returncode != 0)'
+
+# Count failures by binary
+archivebox process list | jq -r 'select(.returncode != 0) | .binary_id' | sort | uniq -c
+```
+
+### Check Chrome Executions
+
+See all Chrome/Chromium runs:
+
+```bash
+archivebox process list --binary-name=chrome
+
+# Count Chrome successes vs failures
+archivebox process list --binary-name=chrome | jq -r '.returncode' | sort | uniq -c
+```
+
+### Audit Recent Activity
+
+View recently executed processes:
+
+```bash
+# Last 20 processes
+archivebox process list --limit=20
+
+# Recent failures
+archivebox process list --limit=100 | jq 'select(.returncode != 0)'
+```
+
+### Track Binary Usage
+
+See which binaries are used most:
+
+```bash
+# Count executions per binary
+archivebox process list | jq -r '.binary_id' | sort | uniq -c | sort -rn
+
+# List unique binaries used
+archivebox process list | jq -r '.binary_id' | sort -u
+```
+
+### Performance Analysis
+
+Analyze process execution times:
+
+```bash
+# Calculate duration for each process
+archivebox process list | jq '
+  select(.start_ts and .end_ts) |
+  {binary: .binary_id, duration: (.end_ts - .start_ts)}
+'
+
+# Find slow processes
+archivebox process list | jq '
+  select(.start_ts and .end_ts) |
+  select((.end_ts - .start_ts) > 60)  # Longer than 60 seconds
+'
+```
+
+### Filter by Machine
+
+See processes from specific machines:
+
+```bash
+# Get machine ID
+MACHINE_ID=$(archivebox machine list --limit=1 | jq -r '.id')
+
+# List processes from that machine
+archivebox process list --machine-id=$MACHINE_ID
+```
+
+## Automatic Process Creation
+
+Process records are created automatically:
+
+1. **Before binary execution** - Process record created with start_ts
+2. **Binary runs** - Stdout/stderr captured
+3. **After completion** - end_ts and returncode recorded
+4. **Linked to parent** - Associated with Snapshot or ArchiveResult
+
+You never need to manually create Process records.
+
+## Process Information Tracked
+
+- **Binary** - Which executable ran (chrome, wget, etc.)
+- **Machine** - Which host machine executed it
+- **Timestamps** - Start and end times
+- **Exit code** - Success (0) or failure (non-zero)
+- **Output** - Stdout and stderr (stored separately)
+- **Parent record** - Which Snapshot/ArchiveResult triggered it
+
+## Read-Only Nature
+
+Process records are read-only:
+- ✓ List and filter processes
+- ✗ Cannot create manually (auto-created)
+- ✗ Cannot update (system-managed)
+- ✗ Cannot delete (audit trail)
+
+<Warning>
+  Process records are intentionally immutable to maintain an accurate audit trail of all executions.
+</Warning>
+
+## JSONL Format
+
+Processes are piped between commands as JSONL (JSON Lines):
+
+```json
+{
+  "type": "process",
+  "id": "01HQAA1234567890ABCDEFGH",
+  "binary_id": "01HQZZ...",
+  "machine_id": "01HQYY...",
+  "start_ts": "2024-02-28T10:00:00Z",
+  "end_ts": "2024-02-28T10:00:05Z",
+  "returncode": 0,
+  "stdout": "...",
+  "stderr": ""
+}
+```
+
+## Common Binaries Tracked
+
+Processes track executions of:
+
+- **chrome/chromium** - Browser operations
+- **wget** - HTTP downloads
+- **curl** - HTTP requests
+- **yt-dlp** - Media downloads
+- **git** - Repository cloning
+- **single-file** - Page archiving
+- **readability** - Article extraction
+- **mercury** - Content parsing
+
+## Exit Codes
+
+Common exit codes:
+
+- **0** - Success
+- **1** - General error
+- **127** - Command not found
+- **130** - Interrupted (Ctrl+C)
+- **null** - Process still running or not finished
+
+## Related Models
+
+Process records relate to:
+
+- **Binary** - Which executable was run
+- **Machine** - Which host ran the process
+- **Snapshot** - Which snapshot triggered the extraction
+- **ArchiveResult** - Which result the process created
+
+## Debugging with Process Records
+
+### Find Why Extraction Failed
+
+```bash
+# List failed Chrome processes
+archivebox process list --binary-name=chrome | jq 'select(.returncode != 0)'
+
+# Get full details including stderr
+archivebox process list --binary-name=chrome | jq 'select(.returncode != 0) | {id, returncode, stderr}'
+```
+
+### Check Process Duration
+
+```bash
+# Find long-running processes
+archivebox process list | jq '
+  select(.end_ts and .start_ts) |
+  select(((.end_ts | fromdateiso8601) - (.start_ts | fromdateiso8601)) > 300)  # > 5 minutes
+'
+```
+
+### Verify Binary Execution
+
+```bash
+# Check if wget is actually running
+archivebox process list --binary-name=wget --limit=5
+
+# If empty, binary might not be configured correctly
+archivebox binary list --name=wget
+```
+
+## Troubleshooting
+
+### No Processes Listed
+
+**Cause:** No extractions have been run yet.
+
+**Solution:**
+```bash
+# Add and archive a URL to create processes
+archivebox add "https://example.com"
+archivebox run
+
+# Check again
+archivebox process list
+```
+
+### All Processes Show Exit Code 1
+
+**Cause:** Binary not installed or configured incorrectly.
+
+**Solution:**
+```bash
+# Check which binary is failing
+archivebox process list | jq 'select(.returncode != 0)'
+
+# Install missing dependencies
+archivebox install
+
+# Check binary status
+archivebox version
+```
+
+### Process Output Missing
+
+**Cause:** Process records may not store full output to save space.
+
+**Solution:** Check logs directory:
+```bash
+ls -la logs/
+cat logs/archivebox.log
+```
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="machine" icon="server" href="/cli/machine">
+    Manage machine records
+  </Card>
+  <Card title="binary" icon="microchip" href="/cli/binary">
+    Manage binary detection
+  </Card>
+  <Card title="archiveresult" icon="box-archive" href="/cli/archiveresult">
+    Manage extraction results
+  </Card>
+  <Card title="snapshot" icon="camera" href="/cli/snapshot">
+    Manage archived snapshots
+  </Card>
+</CardGroup>
+
+## Architecture Notes
+
+Process records are part of ArchiveBox's audit and debugging system:
+
+- Stored in `machine_process` table
+- Created automatically before binary execution
+- ULID primary keys for global uniqueness
+- Immutable after creation
+- Used for debugging extraction failures
+- Useful for performance analysis

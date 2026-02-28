@@ -1,0 +1,400 @@
+---
+title: archivebox run
+description: Process queued work using the orchestrator and workers
+icon: play
+---
+
+## Overview
+
+The `run` command is the unified command for processing queued work in ArchiveBox. It runs the orchestrator (which manages workers) or individual workers depending on the mode and options provided.
+
+## Basic Usage
+
+```bash
+# Run orchestrator in foreground
+archivebox run
+
+# Run as daemon (don't exit when idle)
+archivebox run --daemon
+```
+
+```bash docker
+docker compose run archivebox run
+```
+
+## Modes
+
+The `run` command operates in different modes:
+
+### 1. Orchestrator Mode (Default)
+
+Runs the orchestrator which:
+- Polls all model queues (Crawl, Snapshot, ArchiveResult)
+- Spawns worker processes when work is available
+- Monitors worker health and restarts failed workers
+- Exits when all queues are empty (unless `--daemon`)
+
+```bash
+# Run until all work is complete
+archivebox run
+
+# Run forever (daemon mode)
+archivebox run --daemon
+```
+
+### 2. Stdin JSONL Mode
+
+Processes JSONL records from stdin, then exits:
+
+```bash
+# Process specific snapshots
+archivebox snapshot list --status=queued | archivebox run
+
+# Retry failed archive results
+archivebox archiveresult list --status=failed | archivebox run
+
+# Process specific crawls
+archivebox crawl list --status=queued | archivebox run
+
+# Mixed types work too
+cat mixed_records.jsonl | archivebox run
+```
+
+**Behavior:**
+- Records WITHOUT id: Creates new records, then queues them
+- Records WITH id: Looks up existing records, re-queues them
+- Processes all piped records, then exits when complete
+- Outputs JSONL of all processed records (for chaining)
+
+### 3. Specific Crawl Mode
+
+Runs orchestrator for a specific crawl only:
+
+```bash
+archivebox run --crawl-id=019b7e90-04d0-73ed-adec-aad9cfcd863e
+```
+
+Shows live progress for that crawl.
+
+### 4. Specific Snapshot Mode
+
+Runs a worker for a specific snapshot (internal use by orchestrator):
+
+```bash
+archivebox run --snapshot-id=019b7e90-5a8e-712c-9877-2c70eebe80ad
+```
+
+### 5. Specific Binary Mode
+
+Runs a worker for a specific binary installation:
+
+```bash
+archivebox run --binary-id=01HQAA...
+```
+
+### 6. Worker Type Mode
+
+Runs a worker daemon for a specific type:
+
+```bash
+archivebox run --worker-type=binary
+```
+
+## Options
+
+### `--daemon`, `-d`
+
+Run forever without exiting when idle:
+
+```bash
+archivebox run --daemon
+```
+
+Useful for:
+- Long-running background processes
+- Systemd services
+- Docker containers that should stay running
+
+### `--crawl-id`
+
+Run orchestrator for a specific crawl only:
+
+```bash
+archivebox run --crawl-id=<crawl-uuid>
+```
+
+### `--snapshot-id`
+
+Run worker for a specific snapshot (internal use):
+
+```bash
+archivebox run --snapshot-id=<snapshot-uuid>
+```
+
+### `--binary-id`
+
+Run worker for a specific binary installation:
+
+```bash
+archivebox run --binary-id=<binary-uuid>
+```
+
+### `--worker-type`
+
+Run worker daemon of specific type:
+
+```bash
+archivebox run --worker-type=binary
+```
+
+## Examples
+
+### Run Orchestrator Until Complete
+
+```bash
+# Process all queued work, then exit
+archivebox run
+```
+
+### Run as Background Daemon
+
+```bash
+# Run forever
+archivebox run --daemon
+
+# Or with nohup
+nohup archivebox run --daemon > archivebox.log 2>&1 &
+```
+
+### Process Specific Records
+
+```bash
+# Process queued snapshots
+archivebox snapshot list --status=queued | archivebox run
+
+# Retry failed archive results
+archivebox archiveresult list --status=failed | archivebox run
+
+# Process specific crawl's snapshots
+archivebox snapshot list --crawl-id=01HQAA... | archivebox run
+```
+
+### Chain Commands
+
+```bash
+# Add URLs and immediately process them
+echo "https://example.com" | archivebox add | archivebox run
+
+# Filter and process
+archivebox snapshot list --status=queued --limit=10 | archivebox run
+```
+
+### Process Specific Crawl
+
+```bash
+# Get crawl ID
+CRAWL_ID=$(archivebox crawl list --limit=1 | jq -r '.id')
+
+# Run orchestrator for that crawl
+archivebox run --crawl-id=$CRAWL_ID
+```
+
+### Docker Background Service
+
+```bash
+docker compose run -d archivebox run --daemon
+```
+
+## Work Processing Flow
+
+The orchestrator processes work in this order:
+
+1. **Crawls** → Spawns CrawlWorker
+   - Processes Crawl records
+   - Creates Snapshot records
+   
+2. **Snapshots** → Spawns SnapshotWorker
+   - Downloads and archives URLs
+   - Creates ArchiveResult records
+   
+3. **ArchiveResults** → Spawns ArchiveResultWorker
+   - Runs individual extractors
+   - Saves output files
+
+4. **Binaries** → Spawns BinaryWorker
+   - Installs missing dependencies
+   - Updates binary records
+
+## JSONL Processing
+
+When processing stdin JSONL:
+
+### Input Format
+
+Any JSONL record type:
+
+```json
+{"type": "crawl", "id": "01HQAA...", "urls": "https://example.com", ...}
+{"type": "snapshot", "id": "01HQBB...", "url": "https://example.com", ...}
+{"type": "archiveresult", "id": "01HQCC...", "extractor": "wget", ...}
+```
+
+### Create-or-Update Behavior
+
+**Records without ID** (create new):
+```json
+{"type": "snapshot", "url": "https://example.com"}
+```
+→ Creates new Snapshot, queues it
+
+**Records with ID** (update existing):
+```json
+{"type": "snapshot", "id": "01HQAA...", "status": "failed"}
+```
+→ Looks up Snapshot, re-queues it
+
+### Output Format
+
+Outputs JSONL of all processed records:
+
+```bash
+archivebox snapshot list --status=failed | archivebox run > reprocessed.jsonl
+```
+
+## Exit Codes
+
+- **0** - Success (all work completed or daemon exited cleanly)
+- **1** - Error (worker failure, invalid options, etc.)
+
+## Use Cases
+
+### Process All Queued Work
+
+```bash
+# After adding many URLs
+archivebox add < urls.txt
+archivebox run
+```
+
+### Background Processing Service
+
+```bash
+# Systemd service
+[Service]
+ExecStart=/usr/local/bin/archivebox run --daemon
+WorkingDirectory=/data/archivebox
+Restart=always
+```
+
+### Retry Failed Snapshots
+
+```bash
+archivebox snapshot list --status=failed | archivebox run
+```
+
+### Process New Crawl Immediately
+
+```bash
+# Add and process
+archivebox add "https://example.com" --depth=1 | archivebox run
+```
+
+### Scheduled Processing
+
+```bash
+# Cron job to process queue every hour
+0 * * * * cd /data/archivebox && archivebox run
+```
+
+## Orchestrator Details
+
+The orchestrator:
+
+1. **Checks for existing orchestrator** - Only one can run at a time
+2. **Polls queues** - Checks each model for queued work
+3. **Spawns workers** - Creates worker processes as needed
+4. **Monitors health** - Watches worker processes
+5. **Handles failures** - Restarts workers, marks failed records
+6. **Exits gracefully** - On Ctrl+C or when idle (unless `--daemon`)
+
+## Worker Types
+
+- **CrawlWorker** - Processes Crawl records (URL expansion, depth)
+- **SnapshotWorker** - Archives individual URLs
+- **ArchiveResultWorker** - Runs specific extractors
+- **BinaryWorker** - Installs dependencies
+
+## Monitoring
+
+Check orchestrator status:
+
+```bash
+# Check if orchestrator is running
+ps aux | grep "archivebox run"
+
+# Check worker processes
+ps aux | grep SnapshotWorker
+
+# View logs
+tail -f logs/archivebox.log
+```
+
+## Troubleshooting
+
+### Orchestrator Already Running
+
+**Error:** `Orchestrator is already running`
+
+**Solution:**
+```bash
+# Find and stop existing orchestrator
+pkill -f "archivebox run"
+
+# Or wait for it to finish
+archivebox status  # Check queue status
+```
+
+### Workers Not Processing
+
+**Cause:** Records not properly queued.
+
+**Solution:**
+```bash
+# Check queue status
+archivebox snapshot list --status=queued
+
+# Manually re-queue
+archivebox snapshot list --status=failed | archivebox run
+```
+
+### High Memory Usage
+
+**Cause:** Too many concurrent workers.
+
+**Solution:** Configure worker limits in `ArchiveBox.conf`:
+```bash
+archivebox config --set MAX_CONCURRENT_WORKERS=2
+```
+
+## Related Commands
+
+<CardGroup cols={2}>
+  <Card title="add" icon="plus" href="/cli/add">
+    Add URLs to queue
+  </Card>
+  <Card title="update" icon="rotate" href="/cli/update">
+    Re-queue snapshots for processing
+  </Card>
+  <Card title="status" icon="chart-simple" href="/cli/status">
+    Check queue and worker status
+  </Card>
+  <Card title="snapshot" icon="camera" href="/cli/snapshot">
+    Manage snapshot records
+  </Card>
+</CardGroup>
+
+## See Also
+
+- [Workers & Orchestrator](/architecture/workers) - Worker system architecture
+- [Queue System](/architecture/queues) - How queuing works
+- [Background Processing](/usage/background-processing) - Running ArchiveBox as a service
