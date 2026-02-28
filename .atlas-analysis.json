@@ -1,0 +1,194 @@
+{
+  "projectType": "saas",
+  "projectName": "ArchiveBox",
+  "projectDescription": "Open source self-hosted web archiving solution that saves URLs in multiple formats for long-term preservation.",
+  "theme": "maple",
+  "primaryColor": "#1a1a1a",
+  "lightColor": "#5f7dae",
+  "darkColor": "#1a1a1a",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Installation Methods",
+            "pages": [
+              "install/docker-compose",
+              "install/docker",
+              "install/pip",
+              "install/apt",
+              "install/brew",
+              "install/other"
+            ]
+          },
+          {
+            "group": "Usage",
+            "pages": [
+              "usage/cli",
+              "usage/web-ui",
+              "usage/browser-extension",
+              "usage/python-api"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/input-formats",
+              "features/output-formats",
+              "features/archiving",
+              "features/search",
+              "features/personas",
+              "features/scheduled-archiving"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "config/overview",
+              "config/environment-variables",
+              "config/archivebox-conf",
+              "config/dependencies",
+              "config/storage"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "plugins/overview",
+              "plugins/extractors",
+              "plugins/parsers",
+              "plugins/chrome-plugins",
+              "plugins/custom-plugins"
+            ]
+          },
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "advanced/architecture",
+              "advanced/data-model",
+              "advanced/security",
+              "advanced/troubleshooting",
+              "advanced/upgrading",
+              "advanced/backups"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/overview",
+              "cli/init",
+              "cli/add",
+              "cli/remove",
+              "cli/update",
+              "cli/list",
+              "cli/status",
+              "cli/config",
+              "cli/schedule",
+              "cli/server",
+              "cli/shell",
+              "cli/manage"
+            ]
+          },
+          {
+            "group": "Model Commands",
+            "pages": [
+              "cli/crawl",
+              "cli/snapshot",
+              "cli/archiveresult",
+              "cli/tag",
+              "cli/binary",
+              "cli/persona"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/snapshots",
+              "api/crawls",
+              "api/tags",
+              "api/webhooks"
+            ]
+          },
+          {
+            "group": "Python API",
+            "pages": [
+              "api/python/overview",
+              "api/python/models",
+              "api/python/extractors",
+              "api/python/config"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Community",
+        "groups": [
+          {
+            "group": "Resources",
+            "pages": [
+              "community/contributing",
+              "community/ecosystem",
+              "community/professional-support",
+              "community/changelog",
+              "community/roadmap"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Self-hosted web archiving with Docker, pip, or package managers",
+    "Comprehensive archiving: HTML, PDF, PNG, WARC, media, git repos, and more",
+    "Multiple import sources: browser history, bookmarks, RSS, Pocket, Pinboard",
+    "Browser extension for realtime archiving",
+    "Plugin architecture with 48+ extractors and parsers",
+    "Full-text search with Sonic backend",
+    "Web UI with admin interface and public archive viewing",
+    "CLI with powerful archivebox commands",
+    "REST API and webhooks for integrations",
+    "Scheduled/automated archiving with cron support",
+    "Persona-based archiving with browser cookies",
+    "Archive.org integration for redundant backups"
+  ],
+  "publicApiSurface": [
+    "archivebox init",
+    "archivebox add <url>",
+    "archivebox remove",
+    "archivebox update",
+    "archivebox list",
+    "archivebox status",
+    "archivebox config",
+    "archivebox schedule",
+    "archivebox server",
+    "archivebox crawl",
+    "archivebox snapshot",
+    "archivebox persona",
+    "Web UI: /admin/, /api/",
+    "REST API: /api/v1/snapshots",
+    "Browser Extension: archivebox-extension",
+    "Python API: archivebox.main, archivebox.index",
+    "Docker: archivebox/archivebox"
+  ]
+}
